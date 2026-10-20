@@ -198,10 +198,7 @@
 
     // Pokémon que segue o jogador (em resolução cheia)
     const lead = G.party.find(m => m.hp > 0);
-    if (lead && w.follower) {
-      const bob = w.walking ? Math.abs(Math.sin(w.dist / 5)) * 3 : 0;
-      ART.drawIcon(ctx, lead.id, PATH_X * 2, (w.py - top) * 2 + 26 - bob, false);
-    }
+    if (lead && w.follower) drawFollower(lead, PATH_X * 2, (w.py - top) * 2 + 50, w);
     // overlays em resolução cheia
     for (const o of w.objects) if (o.drawHi) o.drawHi(ctx, top);
     if (w.bubble) {
@@ -211,6 +208,52 @@
       ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 7, by - 11, 14, 16);
       UI.text(ctx, '!', bx + 1, by + 2, { size: 10, color: '#e03030', shadow: false });
     }
+  }
+
+  // linha mais baixa com pixel visível no sprite (para apoiar os pés no chão)
+  const feetCache = {};
+  function spriteFeet(img, key) {
+    if (feetCache[key] !== undefined) return feetCache[key];
+    let feet = 56;
+    try {
+      const d = img.getContext('2d').getImageData(0, 0, 64, 64).data;
+      for (let y = 63; y >= 0 && feet === 56; y--) {
+        for (let x = 0; x < 64; x++) if (d[(y * 64 + x) * 4 + 3] > 0) { feet = y + 1; break; }
+      }
+    } catch (e) { /* canvas bloqueado (file://): usa o padrão */ }
+    return (feetCache[key] = feet);
+  }
+
+  // Pokémon andando atrás do jogador: sprite de costas com passos (balanço, pulo e achatamento)
+  function drawFollower(mon, cx, groundY, w) {
+    const back = w.dir === 'up';
+    const img = ART.monCanvas(mon.id, mon.shiny, back);
+    const feet = spriteFeet(img, (back ? 'b' : 'f') + mon.id + (mon.shiny ? 's' : ''));
+    const s = .8;
+    let hop = 0, tilt = 0, sx = 1, sy = 1;
+    if (w.walking) {
+      const ph = w.dist / 16 * Math.PI; // um passo a cada 16px, junto com o jogador
+      const lift = Math.abs(Math.sin(ph));
+      hop = lift * 5;
+      tilt = Math.sin(ph) * .09;
+      // achata ao tocar o chão, estica no ar
+      sy = 1 - (1 - lift) * .08 + lift * .04;
+      sx = 2 - sy;
+    } else {
+      const br = Math.sin(performance.now() / 400);
+      sy = 1 + br * .02; sx = 1 - br * .02;
+    }
+    // sombra
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath();
+    ctx.ellipse(cx, groundY, 16 * (1 - hop / 20), 5 * (1 - hop / 20), 0, 0, 7);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(Math.round(cx), Math.round(groundY - hop));
+    ctx.rotate(tilt);
+    ctx.scale(s * sx, s * sy);
+    ctx.drawImage(img, -32, -feet, 64, 64);
+    ctx.restore();
   }
 
   // ---------- Objetos do mundo ----------
