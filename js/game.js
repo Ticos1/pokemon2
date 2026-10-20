@@ -7,7 +7,6 @@
   const W = 360, H = 640;
   const WALK_SPEED = 72;      // px/s (baixa resolução)
   const EVENT_GAP = 230;      // distância entre eventos
-  const CITY_NAMES = ['Pewter', 'Cerulean', 'Vermilion', 'Celadon'];
   const TRAINER_NAMES = ['Joey', 'Ana', 'Rick', 'Bia', 'Leo', 'Duda', 'Caio', 'Lia', 'Theo', 'Nina', 'Gabe', 'Malu', 'Davi', 'Iris', 'Enzo', 'Lara'];
 
   const G = {
@@ -47,16 +46,23 @@
   const ballCount = () => BALLS.reduce((s, b) => s + count(b), 0);
 
   // ---------- HUD ----------
+  function gymIndexAt(i) {
+    return G.route.slice(0, i + 1).filter(x => x === 'gym').length - 1;
+  }
+
   function eventLabel(kind, i) {
-    const gymIdx = G.route.slice(0, i + 1).filter(x => x === 'gym').length - 1;
+    const gi = gymIndexAt(i);
+    const ei = G.route.slice(0, i + 1).filter(x => x === 'elite').length - 1;
     return {
-      wild: 'Grama alta', trainer: 'Treinador', fork: 'Bifurcação', item: 'Item', fishing: 'Lago',
-      rocket: 'Equipe Rocket', rival: 'Rival', gift: 'Presente', city: 'Cidade',
-      gym: kind === 'gym' ? `Ginásio de ${R.GYMS[gymIdx] ? R.GYMS[gymIdx].leader : ''}` : '', champion: 'Campeão',
+      wild: 'Grama alta', trainer: 'Treinador', item: 'Item', fishing: 'Lago',
+      rocket: 'Equipe Rocket', rival: 'Rival', gift: 'Presente',
+      gym: R.GYMS[gi] ? `Ginásio de ${R.GYMS[gi].leader}` : 'Ginásio',
+      elite: R.ELITE[ei] ? `Elite dos 4: ${R.ELITE[ei].name}` : 'Elite dos 4',
+      champion: 'Campeão',
     }[kind] || kind;
   }
 
-  const NODE_ICON = { wild: '🌿', trainer: '⚔', fork: '⑂', item: '●', fishing: '≈', rocket: 'R', rival: '!', gift: '♥', city: '⌂', champion: '♛' };
+  const NODE_ICON = { wild: '🌿', trainer: '⚔', item: '●', fishing: '≈', rocket: 'R', rival: '!', gift: '♥', elite: '4', champion: '♛' };
 
   function updateHud() {
     const prog = $('#prog');
@@ -67,17 +73,12 @@
       const n = el('div', 'node');
       if (ev === 'gym') {
         n.classList.add('gym');
-        const [c, x] = ART.canvas(16, 16);
-        ART.drawBadge(x, gymN, 8, 8, 6);
+        n.innerHTML = `<i style="${ART.badgeStyle(gymN, 12)}"></i>`;
         if (gymN >= G.badges) n.classList.add('dim');
-        n.appendChild(c);
         gymN++;
-      } else if (ev === 'champion') {
+      } else if (ev === 'champion' || ev === 'elite') {
         n.classList.add('champ');
-        n.textContent = NODE_ICON.champion;
-      } else if (ev === 'city') {
-        n.classList.add('city');
-        n.textContent = NODE_ICON.city;
+        n.textContent = NODE_ICON[ev];
       } else {
         n.textContent = i < G.step ? NODE_ICON[ev] : '?';
       }
@@ -85,7 +86,8 @@
       if (i === G.step) n.classList.add('current');
       prog.appendChild(n);
     });
-    $('#step').textContent = `${Math.min(G.step + (G.scene === 'title' ? 0 : 1), 15)}/15`;
+    const total = G.route.length || R.ROUTE.length;
+    $('#step').textContent = `${Math.min(G.step + (G.scene === 'title' ? 0 : 1), total)}/${total}`;
     $('#money').textContent = '₽' + G.money;
     $('#balls').textContent = ballCount();
     $('#potions').textContent = count('potion') + count('superpotion') + count('hyperpotion');
@@ -145,43 +147,51 @@
     if (w.bubble && (w.bubble.t -= dt) <= 0) w.bubble = null;
   }
 
+  // Colunas da rota (16px cada, x = col * 16 - 6): 0-1 floresta, 5-6 caminho, 10-11 floresta
   const PATH_X = 90; // centro do caminho
+  const colX = c => c * 16 - 6;
+
+  // árvore decorativa 2x2 (topo na linha r) à esquerda (colunas 2-3) ou à direita (8-9)
+  function treeAt(col, row) {
+    for (const [c0, seed] of [[2, 3.7], [8, 5.3]]) {
+      if (col !== c0 && col !== c0 + 1) continue;
+      for (const r of [row, row - 1]) {
+        if (r % 3 === 0 && hash(r * seed + c0) < .3) {
+          const top = r === row;
+          const left = col === c0;
+          return top ? (left ? 'treeTL' : 'treeTR') : (left ? 'treeBL' : 'treeBR');
+        }
+      }
+    }
+    return null;
+  }
+
   function tileAt(col, row) {
-    const objs = G.world.objects;
-    for (const o of objs) if (o.tile) { const t = o.tile(col, row); if (t) return t; }
-    if (col === 5 || col === 6) return 'path';
-    const h = hash(col * 7.3 + row * 13.1);
-    if (h < .06) return 'flowers';
-    return 'grass';
+    for (const o of G.world.objects) if (o.tile) { const t = o.tile(col, row); if (t) return t; }
+    const odd = ((row % 2) + 2) % 2;
+    if (col <= 1) return 'forestL' + (odd * 2 + col);
+    if (col >= 10) return 'forestR' + (odd * 2 + col - 10);
+    if (col === 5) return 'pathL';
+    if (col === 6) return 'pathR';
+    const tree = treeAt(col, row);
+    if (tree) return tree;
+    if (hash(col * 7.3 + row * 13.1) < .07) return (row + col) % 2 ? 'flowerA' : 'flowerB';
+    return 'grass' + odd + (col % 2);
   }
 
   function drawWorld() {
     const w = G.world;
     const top = w.py - 230;
     const x = lctx;
-    x.fillStyle = '#88d070';
-    x.fillRect(0, 0, 180, 320);
     const r0 = Math.floor(top / 16);
     for (let r = r0; r < r0 + 22; r++) {
       const y = r * 16 - top;
-      for (let c = 0; c < 12; c++) {
-        const t = tileAt(c, r);
-        x.drawImage(ART.TILES[t] || ART.TILES.grass, c * 16 - 6, Math.round(y));
-      }
-    }
-    // árvores nas bordas
-    for (let r = r0 - 1; r < r0 + 22; r++) {
-      const y = Math.round(r * 16 - top);
-      x.drawImage(ART.TILES.tree, -6, y - 8);
-      x.drawImage(ART.TILES.tree, 154, y - 8);
-      x.drawImage(ART.TILES.tree, 170, y);
-      if (hash(r * 3.7) < .35) x.drawImage(ART.TILES.tree, 10, y - 8);
-      if (hash(r * 5.1 + 2) < .35) x.drawImage(ART.TILES.tree, 138, y - 8);
+      for (let c = 0; c < 12; c++) ART.drawTile(x, tileAt(c, r), colX(c), y);
     }
     // objetos e personagens ordenados por y
     const drawables = w.objects.filter(o => o.draw).map(o => ({ y: o.y, fn: () => o.draw(x, top) }));
-    const frame = w.walking ? [0, 1, 0, 2][Math.floor(w.dist / 8) % 4] : 0;
-    drawables.push({ y: w.py, fn: () => ART.drawChar(x, 'player', w.dir, frame, PATH_X, Math.round(w.py - top)) });
+    const step = w.walking ? [1, 0, 2, 0][Math.floor(w.dist / 8) % 4] : 0;
+    drawables.push({ y: w.py, fn: () => ART.drawChar(x, 'player', w.dir, step, PATH_X, Math.round(w.py - top)) });
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.fn();
     ctx.drawImage(low, 0, 0, W, H);
@@ -190,13 +200,13 @@
     const lead = G.party.find(m => m.hp > 0);
     if (lead && w.follower) {
       const bob = w.walking ? Math.abs(Math.sin(w.dist / 5)) * 3 : 0;
-      ART.drawIcon(ctx, lead.id, PATH_X * 2, (w.py - top) * 2 + 22 - bob, false);
+      ART.drawIcon(ctx, lead.id, PATH_X * 2, (w.py - top) * 2 + 26 - bob, false);
     }
     // overlays em resolução cheia
     for (const o of w.objects) if (o.drawHi) o.drawHi(ctx, top);
     if (w.bubble) {
       const o = w.bubble;
-      const bx = o.x * 2, by = (o.y - top) * 2 - 44;
+      const bx = o.x * 2, by = (o.y - top) * 2 - 74;
       ctx.fillStyle = '#282828'; ctx.fillRect(bx - 9, by - 13, 18, 20);
       ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 7, by - 11, 14, 16);
       UI.text(ctx, '!', bx + 1, by + 2, { size: 10, color: '#e03030', shadow: false });
@@ -210,15 +220,15 @@
 
   // depois da batalha o treinador sai do caminho
   function stepAside(o) {
-    o.x = PATH_X + 28;
-    o.dir = 'down';
+    o.x = PATH_X + 26;
+    o.dir = 'left';
   }
 
   function tallGrass(y0, rows = 4) {
     const rTop = Math.floor((y0 - rows * 16) / 16), rBot = Math.floor(y0 / 16);
     const o = {
       y: y0, shake: 0,
-      tile: (col, row) => (row >= rTop && row <= rBot && col >= 1 && col <= 10 ? 'tall' : null),
+      tile: (col, row) => (row >= rTop && row <= rBot && col >= 2 && col <= 9 ? 'tall' : null),
       update(dt) { this.shake = Math.max(0, this.shake - dt); },
       // folhas voando enquanto a grama balança
       drawHi(c, top) {
@@ -227,7 +237,7 @@
         for (let i = 0; i < 6; i++) {
           const gx = (PATH_X + (i - 2.5) * 14 + (k ? 2 : -2)) * 2;
           const gy = (y0 - 40 - (i % 3) * 8 - top) * 2 - (1 - this.shake) * 30;
-          c.fillStyle = i % 2 ? '#2f7f30' : '#78d068';
+          c.fillStyle = i % 2 ? '#205830' : '#88d070';
           c.fillRect(gx, gy, 4, 4);
         }
       },
@@ -237,7 +247,7 @@
 
   function lake(y0) {
     const rTop = Math.floor((y0 - 64) / 16), rBot = Math.floor(y0 / 16);
-    return { y: y0, tile: (col, row) => (row >= rTop && row <= rBot && col >= 7 && col <= 10 ? 'water' : null) };
+    return { y: y0, tile: (col, row) => (row >= rTop && row <= rBot && col >= 7 && col <= 9 ? 'water' : null) };
   }
 
   function itemBall(y) {
@@ -248,35 +258,22 @@
     return o;
   }
 
-  function signpost(y, x) {
-    return {
-      y, draw(c, top) {
-        const yy = Math.round(y - top);
-        c.fillStyle = '#282828'; c.fillRect(x - 8, yy - 18, 16, 11); c.fillRect(x - 1, yy - 8, 3, 8);
-        c.fillStyle = '#c89050'; c.fillRect(x - 7, yy - 17, 14, 9);
-        c.fillStyle = '#805020'; c.fillRect(x - 5, yy - 14, 10, 1); c.fillRect(x - 5, yy - 11, 8, 1);
-      },
-    };
-  }
-
-  function buildingObj(kind, x, y, w, h, label) {
-    const img = ART.building(kind === 'league' ? 'gym' : kind, w, h);
+  function buildingObj(kind, x, y, label) {
+    const [, h] = ART.buildingSize(kind);
     return {
       y,
-      tile: (col, row) => null,
-      draw(c, top) { c.drawImage(img, Math.round(x - w / 2), Math.round(y - top - h)); },
+      draw(c, top) { ART.drawBuilding(c, kind, x, y - top); },
       drawHi(c, top) {
-        if (label) {
-          const lx = x * 2, ly = (y - top - h) * 2 - 6;
-          UI.text(c, label, lx, ly, { size: 8, color: '#ffffff', align: 'center', outline: true });
-        }
+        if (!label) return;
+        UI.text(c, label, x * 2, (y - top - h) * 2 - 6, { size: 8, color: '#ffffff', align: 'center', outline: true });
       },
     };
   }
 
+  // área calçada da cidade
   function plaza(yTop, yBot) {
     const rTop = Math.floor(yTop / 16), rBot = Math.floor(yBot / 16);
-    return { y: yBot, tile: (col, row) => (row >= rTop && row <= rBot && col >= 1 && col <= 10 ? 'path' : null) };
+    return { y: yBot, tile: (col, row) => (row >= rTop && row <= rBot && col >= 2 && col <= 9 ? 'pathC' : null) };
   }
 
   // ---------- Transições e cenas especiais ----------
@@ -342,15 +339,16 @@
     }
     ctx.restore();
     const slide = (1 - k) * 200;
-    ART.drawChar(ctx, 'player', 'down', 0, 90 - slide, 470, 7);
-    ART.drawChar(ctx, v.look, 'down', 0, 270 + slide, 300, 7);
+    // retratos de batalha do GBA (o jogador fica de frente para o oponente)
+    ART.drawPortrait(ctx, 'player', 96 - slide, 450, 3, true);
+    ART.drawPortrait(ctx, v.look, 264 + slide, 200, 3);
     const pulse = 1 + Math.sin(v.t * 10) * .06;
     ctx.save();
     ctx.translate(180, 330); ctx.scale(pulse, pulse);
     UI.text(ctx, 'VS', 0, 12, { size: 40, color: '#f8e050', align: 'center', outline: true, outlineColor: '#401010' });
     ctx.restore();
-    UI.text(ctx, v.name, 270, 340, { size: 12, color: '#ffffff', align: 'center', outline: true });
-    if (v.subtitle) UI.text(ctx, v.subtitle, 270, 358, { size: 8, color: '#f8e050', align: 'center', outline: true });
+    UI.text(ctx, v.name, 270, 386, { size: 12, color: '#ffffff', align: 'center', outline: true });
+    if (v.subtitle) UI.text(ctx, v.subtitle, 270, 404, { size: 8, color: '#f8e050', align: 'center', outline: true });
   }
 
   // Evolução
@@ -412,7 +410,7 @@
       ctx.strokeStyle = 'rgba(248,224,80,.5)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(180, 280); ctx.lineTo(180 + Math.cos(a) * 200, 280 + Math.sin(a) * 200); ctx.stroke();
     }
-    ART.drawBadge(ctx, b.i, 180, 280, 40 * k);
+    ART.drawBadge(ctx, b.i, 180, 280, Math.max(16, Math.round(5 * k) * 16));
     UI.text(ctx, R.GYMS[b.i].badge.toUpperCase(), 180, 360, { size: 10, color: '#ffffff', align: 'center', outline: true });
   }
 
@@ -780,10 +778,9 @@
 
   async function evFishing(slot) {
     const y = aheadY();
-    G.world.objects.push(lake(y + 20), npc('fisher', y - 10, 104, 'down'));
+    G.world.objects.push(lake(y + 20), npc('fisher', y - 10, 104, 'left'));
     await walkTo(y);
-    const c = await choose('Pescador: Que lago bonito! Quer pegar minha vara emprestada?', [{ label: 'Pescar', value: true }, { label: 'Seguir caminho', value: false }]);
-    if (!c) return true;
+    await say('Pescador: Que lago bonito! Pegue minha vara e tente a sorte!');
     await say('...');
     await say('Fisgou! Um Pokémon mordeu a isca!');
     return evWildDirect(slot, { fish: true });
@@ -797,40 +794,16 @@
 
   async function evGift(slot) {
     const y = aheadY();
-    G.world.objects.push(npc('oldman', y - 6, 110, 'down'));
+    G.world.objects.push(npc('oldman', y - 6, 110, 'left'));
     await walkTo(y);
-    const pool = M.pick([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 0], [1, 7]]).map(i => R.GIFT_POOL[i]);
-    const opts = pool.map(id => ({ label: DEX[id].name, sub: DEX[id].types.map(t => R.TYPE_INFO[t].pt).join('/'), value: id, icon: ART.iconStyle(id) + ';width:40px;height:30px' }));
-    opts.push({ label: 'Não, obrigado', value: null });
-    const id = await choose('Senhor: Estes Pokémon precisam de um treinador. Quer levar um deles?', opts);
-    if (!id) return true;
+    const id = M.pick(R.GIFT_POOL);
+    await say(`Senhor: Este ${DEX[id].name} precisa de um treinador. Cuide bem dele!`);
     const mon = M.create(id, Math.max(5, R.SLOT_LEVEL[slot] - 1));
     window.SFX.caught();
     await say(`Você recebeu ${DEX[id].name}!`);
     await addCaught(mon);
     G.stats.caught--;
     return true;
-  }
-
-  async function evFork(slot) {
-    const y = aheadY();
-    G.world.objects.push(signpost(y - 4, PATH_X + 18));
-    await walkTo(y);
-    const c = await choose('O caminho se divide em três! Qual você escolhe?', [
-      { label: '🌿 Grama alta', sub: 'chance de shiny x3', value: 'grass' },
-      { label: '⚔ Treinador', sub: 'mais dinheiro', value: 'trainer' },
-      { label: '❓ Trilha escura', sub: 'tesouro... ou perigo', value: 'dark' },
-    ]);
-    if (c === 'grass') return evWild(slot, { shinyMult: 3, bonus: 1 });
-    if (c === 'trainer') return evTrainer(slot, 1.6);
-    if (Math.random() < .5) {
-      await say('Você achou um baú escondido!');
-      await giveFoundItem();
-      await giveFoundItem();
-      return true;
-    }
-    await say('Uma emboscada!');
-    return evRocket(slot);
   }
 
   async function shop() {
@@ -873,34 +846,32 @@
     await wait(.8);
   }
 
-  async function evCity(slot) {
-    const cityIdx = G.route.slice(0, slot).filter(x => x === 'gym').length;
-    const name = CITY_NAMES[cityIdx] || 'Kanto';
+  // Cidade do ginásio: Centro Pokémon (cura) e Loja
+  async function cityStop(name) {
     const y = aheadY();
     G.world.objects.push(
-      plaza(y - 70, y + 30),
-      buildingObj('center', 38, y - 8, 52, 44, 'CENTRO'),
-      buildingObj('mart', 142, y - 8, 52, 44, 'LOJA'),
-      npc('nurse', y + 6, 52, 'down'),
-      npc('clerk', y + 6, 128, 'down'),
+      plaza(y - 60, y + 40),
+      buildingObj('center', 34, y - 4),
+      buildingObj('mart', 146, y - 4),
+      npc('nurse', y + 14, 40, 'down'),
+      npc('clerk', y + 14, 140, 'down'),
     );
-    await walkTo(y + 10);
+    await walkTo(y + 16);
     await say(`Bem-vindo à cidade de ${name}!`);
     await say('Enfermeira Joy: Vou cuidar dos seus Pokémon!');
     await healParty();
     await say('Seus Pokémon estão totalmente recuperados!');
     const c = await choose('Vendedor: Quer comprar alguma coisa?', [{ label: 'Entrar na loja', value: true }, { label: 'Seguir viagem', value: false }]);
     if (c) await shop();
-    await walkTo(G.world.py - 90);
-    return true;
   }
 
   async function evGym(slot) {
     const gi = G.route.slice(0, slot).filter(x => x === 'gym').length;
     const data = P.gym(gi);
     const g = data.gym;
-    const y = aheadY();
-    G.world.objects.push(plaza(y - 90, y + 20), buildingObj('gym', PATH_X, y, 100, 62, `GINÁSIO DE ${g.city.toUpperCase()}`));
+    await cityStop(g.city);
+    const y = G.world.py - 150;
+    G.world.objects.push(plaza(y - 90, y + 30), buildingObj('gym', PATH_X, y, `GINÁSIO DE ${g.city.toUpperCase()}`));
     await walkTo(y + 14);
     await say(`Ginásio de ${g.city} — Líder: ${g.leader}, especialista em tipo ${R.TYPE_INFO[g.type].pt}.`);
     await say(`${g.leader}: ${g.intro}`);
@@ -920,18 +891,35 @@
     return ok;
   }
 
+  // Elite dos 4: a primeira sala começa no Planalto Índigo; entre as salas não há cura
+  async function evElite(slot) {
+    const ei = G.route.slice(0, slot).filter(x => x === 'elite').length;
+    const data = P.elite(ei);
+    const e = data.elite;
+    if (ei === 0) {
+      const y = aheadY();
+      G.world.objects.push(plaza(y - 110, y + 30), buildingObj('league', PATH_X, y, 'LIGA POKÉMON'));
+      await walkTo(y + 20);
+      await say('Você chegou ao Planalto Índigo! Aqui estão a Elite dos 4 e o Campeão.');
+      await healParty();
+      await say('Seus Pokémon foram curados. Depois daqui, não há mais Centro Pokémon!');
+      const c = await choose('Quer passar na loja antes do desafio?', [{ label: 'Entrar na loja', value: true }, { label: 'Estou pronto!', value: false }]);
+      if (c) await shop();
+    } else {
+      await say(`Você segue para a próxima sala da Liga...`);
+    }
+    await say(`${e.name}: ${e.intro}`);
+    const res = await runBattle({ enemies: data.team, kind: 'elite', theme: e.arena, title: e.name, look: e.look, vs: { name: e.name, subtitle: 'Elite dos 4' } });
+    if (!res.won) return false;
+    await say(`${e.name}: ${e.lose}`);
+    return afterBattle(res, 'elite', data.money);
+  }
+
   async function evChampion() {
-    const y = aheadY();
-    G.world.objects.push(plaza(y - 90, y + 20), buildingObj('league', PATH_X, y, 120, 66, 'LIGA POKÉMON'));
-    await walkTo(y + 14);
-    await say('Você chegou ao Planalto Índigo, a Liga Pokémon!');
-    await healParty();
-    await say('Seus Pokémon foram curados para a batalha final.');
-    const c = await choose('Quer passar na loja antes do desafio?', [{ label: 'Entrar na loja', value: true }, { label: 'Estou pronto!', value: false }]);
-    if (c) await shop();
+    await say('Você entra na sala do Campeão...');
     await say('Blue: Até que enfim você chegou! Eu sou o Campeão agora. Prove que é melhor que eu!');
     const data = P.champion(G.starter);
-    const res = await runBattle({ enemies: data.team, kind: 'champion', theme: 'champion', title: 'Campeão Blue', look: 'rival', vs: { name: 'Blue', subtitle: 'CAMPEÃO' } });
+    const res = await runBattle({ enemies: data.team, kind: 'champion', theme: 'champion', title: 'Campeão Blue', look: 'champion', vs: { name: 'Blue', subtitle: 'CAMPEÃO' } });
     if (!res.won) return false;
     await say('Blue: Não acredito... Eu perdi! Você é o novo Campeão!');
     await afterBattle(res, 'champion', data.money);
@@ -947,9 +935,8 @@
       case 'item': return evItem(slot);
       case 'fishing': return evFishing(slot);
       case 'gift': return evGift(slot);
-      case 'fork': return evFork(slot);
-      case 'city': return evCity(slot);
       case 'gym': return evGym(slot);
+      case 'elite': return evElite(slot);
       case 'champion': return evChampion(slot);
     }
     return true;
@@ -961,7 +948,7 @@
       const box = UI.modal('title');
       box.innerHTML = `
         <div class="logo"><span>POKÉMON</span><em>Jornada por Kanto</em></div>
-        <p class="muted">Seu treinador caminha sozinho pela rota.<br>Grama alta, treinadores, lojas, 4 Líderes de Ginásio e o Campeão.<br>As batalhas acontecem sozinhas, em tempo real!</p>
+        <p class="muted">Seu treinador caminha sozinho por Kanto.<br>Um evento surpresa, um ginásio... até as 8 insígnias, a Elite dos 4 e o Campeão.<br>As batalhas acontecem sozinhas, em tempo real!</p>
         <div class="label">MODO DE BATALHA</div>`;
       const modes = el('div', 'row');
       for (const m of [1, 2]) {
@@ -1002,7 +989,7 @@
         box.innerHTML = `<h1>CAMPEÃO!</h1><p>Você venceu a Liga Pokémon de Kanto!</p><div class="label">HALL DA FAMA</div>`;
       } else {
         box.innerHTML = `<h1>FIM DE JOGO</h1><p>Seu time desmaiou...</p>
-          <p>Você chegou até: <b>${eventLabel(kind, reachedSlot)}</b> (${reachedSlot + 1}/15)</p>`;
+          <p>Você chegou até: <b>${eventLabel(kind, reachedSlot)}</b> (${reachedSlot + 1}/${G.route.length})</p>`;
       }
       const team = el('div', 'hall');
       for (const m of G.party) {
@@ -1013,9 +1000,9 @@
       }
       box.appendChild(team);
       const badges = el('div', 'badges');
-      for (let i = 0; i < 4; i++) {
-        const [c, x] = ART.canvas(24, 24);
-        ART.drawBadge(x, i, 12, 12, 9);
+      for (let i = 0; i < 8; i++) {
+        const [c, x] = ART.canvas(32, 32);
+        ART.drawBadge(x, i, 16, 16, 32);
         if (i >= G.badges) c.className = 'dim';
         badges.appendChild(c);
       }
@@ -1057,17 +1044,16 @@
         return;
       }
     }
-    G.step = 15;
+    G.step = G.route.length;
     updateHud();
     window.SFX.victory();
-    await endScreen(true, 14);
+    await endScreen(true, G.route.length - 1);
   }
 
   async function main() {
     resize();
     window.addEventListener('resize', resize);
     await Promise.all([ART.load(), document.fonts ? document.fonts.load('8px "Press Start 2P"').catch(() => {}) : null]);
-    ART.buildTiles();
     UI.state.speedFn = () => G.speed;
     setupButtons();
     requestAnimationFrame(frame);

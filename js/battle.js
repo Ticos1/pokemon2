@@ -1,14 +1,14 @@
 // Batalha automática em tempo real, vista de cima.
 // A lógica (update) é separada do desenho (draw) para permitir simulação sem tela.
 (function () {
-  const { DEX, TYPE_INFO, effectiveness, movesFor, STRUGGLE, ITEMS, PLAYER_POWER } = window.RULES;
+  const { DEX, TYPE_INFO, effectiveness, movesFor, STRUGGLE, ITEMS, PLAYER_POWER, PLAYER_GUARD } = window.RULES;
   const { rand, pick } = window.MON;
   const sfx = name => window.SFX && window.SFX[name] && window.SFX[name]();
 
   const W = 360;
   const ARENA = { x0: 24, x1: 336, y0: 112, y1: 508 };
-  const UNIT_R = 22;
-  const S = 1.5; // escala dos sprites na arena
+  const UNIT_R = 18;
+  const S = 1; // escala dos sprites na arena
   const CATCH_HP = .35;
 
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -283,17 +283,27 @@
     stab(u, m) { return DEX[u.mon.id].types.includes(m.type) ? 1.5 : 1; }
 
     bestMove(u, target) {
-      let best = null, bestScore = 0, anyUseful = false;
+      let best = null, bestScore = 0, anyUseful = false, topScore = 0;
       const defTypes = DEX[target.mon.id].types;
+      const scores = new Map();
       for (const m of u.moves) {
-        if (m.kind === 'splash') { if (u.cds.get(m) <= 0 && !best) { best = m; } continue; }
+        if (m.kind === 'splash') continue;
         const eff = effectiveness(m.type, defTypes);
         if (eff > 0) anyUseful = true;
-        if (u.cds.get(m) > 0 || eff === 0) continue;
         const atk = m.kind === 'dash' ? u.mon.atk : u.mon.spa;
         const hits = (m.count || 1) * (m.burst || 1);
-        const score = m.pow * hits * eff * this.stab(u, m) * atk + Math.random() * 5;
-        if (score > bestScore) { bestScore = score; best = m; }
+        // dano esperado por segundo de recarga
+        const score = m.pow * hits * eff * this.stab(u, m) * atk / Math.sqrt(m.cd);
+        scores.set(m, score);
+        topScore = Math.max(topScore, score);
+      }
+      for (const m of u.moves) {
+        if (m.kind === 'splash') { if (u.cds.get(m) <= 0 && !best) best = m; continue; }
+        const score = scores.get(m);
+        // ignora golpes muito piores que o melhor: espera ele recarregar
+        if (u.cds.get(m) > 0 || score <= 0 || score < topScore * .45) continue;
+        const sc = score + Math.random() * 5;
+        if (sc > bestScore) { bestScore = sc; best = m; }
       }
       if (!anyUseful && !u.moves.some(m => m.kind === 'splash')) {
         if (!u.cds.has(STRUGGLE)) u.cds.set(STRUGGLE, 0);
@@ -312,7 +322,7 @@
       u.gcd = .55;
       if (m.charge) {
         this.effects.push({ kind: 'charge', u, color: this.color(m), t: 0, dur: m.charge });
-        if (m.charge >= .8) this.text(u.x, u.y - 58, m.name + '!', '#ffffff', m.charge + .3);
+        if (m.charge >= .8) this.text(u.x, u.y - 48, m.name + '!', '#ffffff', m.charge + .3);
       }
     }
 
@@ -326,7 +336,7 @@
 
     execute(u, m, target) {
       const ang = m.kind === 'proj' ? this.aim(u, target, m.speed) : Math.atan2(target.y - u.y, target.x - u.x);
-      if (m.pow >= 80 && !m.charge) this.text(u.x, u.y - 58, m.name + '!', '#ffffff', .9);
+      if (m.pow >= 80 && !m.charge) this.text(u.x, u.y - 48, m.name + '!', '#ffffff', .9);
       switch (m.kind) {
         case 'proj': {
           if (m.burst) {
@@ -389,7 +399,7 @@
         }
         case 'splash': {
           u.jump = .6;
-          this.text(u.x, u.y - 58, 'Pirueta!', '#ffffff', .8);
+          this.text(u.x, u.y - 48, 'Pirueta!', '#ffffff', .8);
           this.after(.5, () => this.text(u.x, u.y - 44, 'Mas nada aconteceu!', '#d0d0d0', 1.2));
           break;
         }
@@ -470,11 +480,11 @@
       const eff = effectiveness(m.type, DEX[d.id].types);
       const crit = Math.random() < .0625 + (m.crit || 0) ? 1.5 : 1;
       const base = ((2 * a.lvl / 5 + 2) * m.pow * A / D) / 50 + 2;
-      const bonus = att.side === 'p' ? PLAYER_POWER : 1;
+      const bonus = att.side === 'p' ? PLAYER_POWER : PLAYER_GUARD;
       let dmg = Math.floor(base * this.stab(att, m) * eff * crit * bonus * rand(.85, 1));
       if (eff > 0) dmg = Math.max(1, dmg);
 
-      const tx = def.x, ty = def.y - 48;
+      const tx = def.x, ty = def.y - 40;
       if (eff === 0) {
         this.text(tx, ty, 'NÃO AFETA', '#b0b0b0');
         return;
@@ -672,7 +682,7 @@
       // sombra
       ctx.fillStyle = 'rgba(0,0,0,.22)';
       ctx.beginPath();
-      ctx.ellipse(u.x, u.y + 26, 26 * scale, 8 * scale, 0, 0, 7);
+      ctx.ellipse(u.x, u.y + 20, 18 * scale, 6 * scale, 0, 0, 7);
       ctx.fill();
       const flip = back ? !u.faceRight : u.faceRight;
       let tint = null;
@@ -691,12 +701,12 @@
       if (st.poison > 0) icons.push('#a040a0');
       if (st.para > 0) icons.push('#f8d030');
       if (st.slow > 0) icons.push('#98d8d8');
-      icons.forEach((c, i) => { ctx.fillStyle = '#282828'; ctx.fillRect(u.x + 20 + i * 7, u.y - 44, 6, 6); ctx.fillStyle = c; ctx.fillRect(u.x + 21 + i * 7, u.y - 43, 4, 4); });
+      icons.forEach((c, i) => { ctx.fillStyle = '#282828'; ctx.fillRect(u.x + 18 + i * 7, u.y - 38, 6, 6); ctx.fillStyle = c; ctx.fillRect(u.x + 19 + i * 7, u.y - 37, 4, 4); });
     }
 
     drawUnitBar(ctx, u) {
       if (u.state === 'enter' || u.state === 'faint' || u.state === 'absorbed' || u.state === 'caught') return;
-      const w = 40, x = Math.round(u.x - w / 2), y = Math.round(u.y - 50);
+      const w = 32, x = Math.round(u.x - w / 2), y = Math.round(u.y - 36);
       const k = u.mon.hp / u.mon.maxhp;
       ctx.fillStyle = '#282828'; ctx.fillRect(x - 1, y - 1, w + 2, 5);
       ctx.fillStyle = '#505050'; ctx.fillRect(x, y, w, 3);
@@ -862,7 +872,7 @@
         y = u.y - 10;
         ctx.globalAlpha = .6;
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(u.x, u.y, 44 * (1 - u.absorb), 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(u.x, u.y, 30 * (1 - u.absorb), 0, 7); ctx.stroke();
         ctx.globalAlpha = 1;
       } else {
         const fall = Math.min(1, (c.t - 1.1) / .2);
@@ -925,62 +935,9 @@
     }
   }
 
-  // ---------- Cenário da arena (desenhado em baixa resolução) ----------
-  const THEMES = {
-    route: { floor: ['#88d070', '#80c868'], border: 'tree', line: 'rgba(255,255,255,.35)' },
-    rock: { floor: ['#c8a870', '#b89860'], border: 'rock', line: 'rgba(80,50,20,.35)' },
-    water: { floor: ['#98c8f8', '#88b8f0'], border: 'tile', borderCol: '#e8f0f8', line: 'rgba(255,255,255,.5)' },
-    electric: { floor: ['#b8b8c8', '#a8a8b8'], border: 'tile', borderCol: '#f8d030', line: 'rgba(248,208,48,.6)' },
-    grass: { floor: ['#a8d878', '#98c868'], border: 'flower', line: 'rgba(255,255,255,.4)' },
-    champion: { floor: ['#a85068', '#985060'], border: 'tile', borderCol: '#f8d878', line: 'rgba(248,216,120,.55)' },
-    rocket: { floor: ['#9090a0', '#808090'], border: 'tile', borderCol: '#c03030', line: 'rgba(200,40,40,.5)' },
-  };
-
-  function arenaBackground(themeName) {
-    const th = THEMES[themeName] || THEMES.route;
-    const [c, x] = ART.canvas(180, 320);
-    x.fillStyle = '#383848'; x.fillRect(0, 0, 180, 320);
-    for (let ty = 0; ty < 320; ty += 8) for (let tx = 0; tx < 180; tx += 8) {
-      x.fillStyle = th.floor[((tx + ty) / 8) % 2]; x.fillRect(tx, ty, 8, 8);
-    }
-    const { x0, x1, y0, y1 } = ARENA;
-    // linhas do campo
-    x.strokeStyle = th.line; x.lineWidth = 1;
-    x.strokeRect(x0 / 2 + 2.5, y0 / 2 + 2.5, (x1 - x0) / 2 - 5, (y1 - y0) / 2 - 5);
-    x.beginPath(); x.moveTo(x0 / 2 + 3, 155.5); x.lineTo(x1 / 2 - 3, 155.5); x.stroke();
-    x.beginPath(); x.arc(90, 155.5, 18, 0, 7); x.stroke();
-    // bordas
-    const borderRow = (y, h) => {
-      if (th.border === 'tree') {
-        for (let tx = -8; tx < 180; tx += 14) x.drawImage(ART.TILES.tree, tx, y + h - 24);
-      } else if (th.border === 'rock') {
-        for (let tx = 0; tx < 180; tx += 12) {
-          x.fillStyle = '#806040'; x.fillRect(tx, y, 12, h);
-          x.fillStyle = '#a08050'; x.fillRect(tx + 2, y + 2, 7, h - 6);
-        }
-      } else if (th.border === 'flower') {
-        for (let tx = 0; tx < 180; tx += 16) for (let ty = y; ty < y + h; ty += 16) x.drawImage(ART.TILES.flowers, tx, ty);
-      } else {
-        x.fillStyle = th.borderCol; x.fillRect(0, y, 180, h);
-        x.fillStyle = 'rgba(0,0,0,.18)';
-        for (let tx = 0; tx < 180; tx += 8) x.fillRect(tx, y, 1, h);
-      }
-    };
-    borderRow(0, y0 / 2);
-    borderRow(y1 / 2, 320 - y1 / 2);
-    for (const side of [0, x1 / 2]) {
-      const w = side ? 180 - side : x0 / 2;
-      x.save(); x.beginPath(); x.rect(side, y0 / 2, w, (y1 - y0) / 2); x.clip();
-      if (th.border === 'tree') for (let ty = y0 / 2 - 8; ty < y1 / 2; ty += 16) x.drawImage(ART.TILES.tree, side ? side - 2 : -4, ty);
-      else borderRow(y0 / 2, (y1 - y0) / 2);
-      x.restore();
-    }
-    // água na arena da Misty
-    if (themeName === 'water') {
-      x.fillStyle = '#5890f0'; x.fillRect(70, 140, 40, 30);
-      x.fillStyle = '#a0c8f8'; x.fillRect(74, 146, 10, 1); x.fillRect(92, 160, 12, 1);
-    }
-    return c;
+  // Cenário da arena: interior do ginásio ou sala da Liga (gerado do FireRed)
+  function arenaBackground(theme) {
+    return ART.arena(theme);
   }
 
   window.BATTLE = { Battle, arenaBackground, ARENA };

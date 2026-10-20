@@ -27,19 +27,19 @@ button { font-family: inherit; cursor: pointer; }
 }
 .hud-row { display: flex; align-items: center; gap: 4px; height: 18px; }
 .step { min-width: 38px; color: #f8e050; }
-#prog { display: flex; gap: 2px; flex: 1; }
+#prog { display: flex; gap: 1px; flex: 1; }
 .node {
-  width: 18px; height: 16px; border-radius: 3px;
+  width: 12px; height: 16px; border-radius: 2px;
   background: #384068; color: #a8b0d0;
   display: flex; align-items: center; justify-content: center;
   font-size: 7px; font-family: sans-serif; font-weight: bold;
 }
-.node canvas { width: 16px; height: 16px; image-rendering: pixelated; }
+.node i { display: block; width: 12px; height: 12px; image-rendering: pixelated; }
 .node.done { background: #285838; color: #c8f0c8; }
 .node.current { background: #f8e050; color: #282828; box-shadow: 0 0 0 1px #fff; }
 .node.city { background: #6060a0; }
 .node.city.done { background: #285838; }
-.node.dim canvas { filter: grayscale(1) brightness(.5); }
+.node.dim i { filter: grayscale(1) brightness(.6); }
 .node.champ { background: #803850; color: #f8e050; }
 .stat { display: inline-flex; align-items: center; gap: 1px; }
 .stat .ico { width: 18px; height: 18px; background: url(assets/items.png) no-repeat; background-size: 162px 18px; display: inline-block; image-rendering: pixelated; }
@@ -190,7 +190,8 @@ button { font-family: inherit; cursor: pointer; }
 .hall-mon { width: 64px; font-size: 6px; line-height: 9px; }
 .hall-mon .mon-img { width: 64px; height: 64px; image-rendering: pixelated; }
 .badges { display: flex; gap: 6px; justify-content: center; }
-.badges canvas { width: 24px; height: 24px; }
+.badges { flex-wrap: wrap; }
+.badges canvas { width: 32px; height: 32px; image-rendering: pixelated; }
 .badges canvas.dim { filter: grayscale(1) opacity(.35); }
 
 .fatal { position: fixed; inset: 10px; background: #300; color: #fcc; padding: 10px; font: 12px monospace; white-space: pre-wrap; z-index: 9; }

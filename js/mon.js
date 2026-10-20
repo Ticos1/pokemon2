@@ -44,7 +44,7 @@
   }
 
   const name = mon => DEX[mon.id].name;
-  const xpNext = lvl => Math.round(.3 * lvl * lvl + 5 * lvl + 10);
+  const xpNext = lvl => Math.round(.9 * lvl * lvl + 2 * lvl + 15);
 
   // Escolhe a evolução para um nível (Eevee escolhe uma aleatória)
   function evolutionFor(mon) {
@@ -75,7 +75,7 @@
   const ROUTE1 = [[16, 30], [19, 30], [10, 15], [13, 15], [21, 15], [29, 10], [32, 10], [25, 2]];
 
   // Força máxima (soma dos status base) permitida em cada parte da rota
-  const maxBstFor = slot => (slot < 3 ? 330 : slot < 7 ? 420 : 999);
+  const maxBstFor = slot => (slot < 2 ? 330 : slot < 6 ? 420 : 999);
 
   function wildSpecies(slot) {
     if (slot === 0) return weighted(ROUTE1);
