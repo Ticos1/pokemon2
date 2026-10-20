@@ -2,7 +2,8 @@
   assets/data.js    -> window.POKEDEX com tipos, status, evoluções etc.
   assets/*.png      -> folhas de sprites (front, back, shiny, ícones, itens)
 
-Uso: python3 tools/build_assets.py   (cache em tools/.cache)
+Uso: python3 tools/build_assets.py           (cache em tools/.cache)
+     python3 tools/build_assets.py sprites   (só as folhas dos Pokémon)
 """
 import io
 import json
@@ -113,6 +114,32 @@ def build_data():
     print("data.js:", len(dex), "pokémon,", sum(len(v) for v in evos.values()), "evoluções")
 
 
+# Sprites dos Pokémon: Black/White (96x96, corpo inteiro de frente e de costas).
+# Cada sprite é recortado e apoiado na linha MON_FEET, centralizado na horizontal,
+# para que os pés fiquem sempre no mesmo lugar (js/art.js usa o mesmo valor).
+MON_SIZE = 96
+MON_FEET = 90
+
+
+def build_mon_sheet(name, path_fmt):
+    w = h = MON_SIZE
+    rows = (N + COLS - 1) // COLS
+    sheet = Image.new("RGBA", (COLS * w, rows * h), (0, 0, 0, 0))
+
+    def one(i):
+        return i, Image.open(io.BytesIO(fetch(f"{SPR}/{path_fmt.format(i)}"))).convert("RGBA")
+
+    with ThreadPoolExecutor(16) as ex:
+        for i, img in ex.map(one, range(1, N + 1)):
+            k = i - 1
+            img = img.crop(img.getbbox())
+            x = (w - img.width) // 2
+            y = max(0, MON_FEET - img.height)
+            sheet.paste(img, ((k % COLS) * w + x, (k // COLS) * h + y))
+    sheet.save(os.path.join(OUT, name), optimize=True)
+    print(name, sheet.size)
+
+
 def build_sheet(name, path_fmt, size):
     w, h = size
     rows = (N + COLS - 1) // COLS
@@ -148,13 +175,17 @@ def build_items():
 
 
 if __name__ == "__main__":
+    import sys
     os.makedirs(CACHE, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
-    build_data()
-    frlg = "pokemon/versions/generation-iii/firered-leafgreen/"
-    build_sheet("front.png", frlg + "{}.png", (64, 64))
-    build_sheet("back.png", frlg + "back/{}.png", (64, 64))
-    build_sheet("front_shiny.png", frlg + "shiny/{}.png", (64, 64))
-    build_sheet("back_shiny.png", frlg + "back/shiny/{}.png", (64, 64))
-    build_sheet("icons.png", "pokemon/versions/generation-vii/icons/{}.png", (40, 30))
-    build_items()
+    only_sprites = "sprites" in sys.argv[1:]
+    if not only_sprites:
+        build_data()
+    bw = "pokemon/versions/generation-v/black-white/"
+    build_mon_sheet("front.png", bw + "{}.png")
+    build_mon_sheet("back.png", bw + "back/{}.png")
+    build_mon_sheet("front_shiny.png", bw + "shiny/{}.png")
+    build_mon_sheet("back_shiny.png", bw + "back/shiny/{}.png")
+    if not only_sprites:
+        build_sheet("icons.png", "pokemon/versions/generation-vii/icons/{}.png", (40, 30))
+        build_items()

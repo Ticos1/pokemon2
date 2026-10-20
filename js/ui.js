@@ -158,8 +158,9 @@
 
   // Canvas com sprite de um Pokémon para usar no DOM
   function monImg(id, shiny, scale = 1, cls = '') {
-    const [c, x] = ART.canvas(64 * scale, 64 * scale);
-    x.drawImage(ART.monCanvas(id, shiny, false), 0, 0, 64 * scale, 64 * scale);
+    const Z = ART.MON_SIZE * scale;
+    const [c, x] = ART.canvas(Z, Z);
+    x.drawImage(ART.monCanvas(id, shiny, false), 0, 0, Z, Z);
     c.className = 'mon-img ' + cls;
     return c;
   }

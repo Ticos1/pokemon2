@@ -210,26 +210,12 @@
     }
   }
 
-  // linha mais baixa com pixel visível no sprite (para apoiar os pés no chão)
-  const feetCache = {};
-  function spriteFeet(img, key) {
-    if (feetCache[key] !== undefined) return feetCache[key];
-    let feet = 56;
-    try {
-      const d = img.getContext('2d').getImageData(0, 0, 64, 64).data;
-      for (let y = 63; y >= 0 && feet === 56; y--) {
-        for (let x = 0; x < 64; x++) if (d[(y * 64 + x) * 4 + 3] > 0) { feet = y + 1; break; }
-      }
-    } catch (e) { /* canvas bloqueado (file://): usa o padrão */ }
-    return (feetCache[key] = feet);
-  }
-
   // Pokémon andando atrás do jogador: sprite de costas com passos (balanço, pulo e achatamento)
   function drawFollower(mon, cx, groundY, w) {
     const back = w.dir === 'up';
     const img = ART.monCanvas(mon.id, mon.shiny, back);
-    const feet = spriteFeet(img, (back ? 'b' : 'f') + mon.id + (mon.shiny ? 's' : ''));
-    const s = .8;
+    const Z = ART.MON_SIZE;
+    const s = .6;
     let hop = 0, tilt = 0, sx = 1, sy = 1;
     if (w.walking) {
       const ph = w.dist / 16 * Math.PI; // um passo a cada 16px, junto com o jogador
@@ -252,7 +238,7 @@
     ctx.translate(Math.round(cx), Math.round(groundY - hop));
     ctx.rotate(tilt);
     ctx.scale(s * sx, s * sy);
-    ctx.drawImage(img, -32, -feet, 64, 64);
+    ctx.drawImage(img, -Z / 2, -ART.MON_FEET, Z, Z);
     ctx.restore();
   }
 
@@ -423,7 +409,7 @@
       ctx.fillRect(180 + Math.cos(a) * r, 280 + Math.sin(a) * r, 2, 2);
     }
     if (e.done) {
-      ART.drawMon(ctx, e.to, e.shiny, false, 180, 280, { scale: 2.5 });
+      ART.drawMon(ctx, e.to, e.shiny, false, 180, 280, { scale: 2 });
       return;
     }
     const k = Math.min(1, e.t / 3.6);
@@ -432,7 +418,7 @@
     const showNew = Math.sin(e.t * freq * Math.PI) > 0 && k > .15;
     const id = showNew ? e.to : e.from;
     const tint = k > .1 ? '#ffffff' : null;
-    ART.drawMon(ctx, id, e.shiny, false, 180, 280, { scale: 2.5, tint });
+    ART.drawMon(ctx, id, e.shiny, false, 180, 280, { scale: 2, tint });
   }
 
   // Insígnia
@@ -619,7 +605,7 @@
       const k = mon.hp / mon.maxhp;
       box.innerHTML = '';
       const head = el('div', 'mon-head');
-      head.appendChild(UI.monImg(mon.id, mon.shiny, 2));
+      head.appendChild(UI.monImg(mon.id, mon.shiny));
       const info = el('div', 'mon-info', `
         <h2>${sp.name}${mon.shiny ? ' <span class="shiny">✦</span>' : ''}</h2>
         <div>Nv ${mon.lvl} · ${sp.types.map(UI.typeTag).join(' ')}</div>
@@ -1014,7 +1000,7 @@
       const row = el('div', 'starters');
       for (const id of [1, 4, 7]) {
         const card = el('button', 'starter-card');
-        card.appendChild(UI.monImg(id, false, 2));
+        card.appendChild(UI.monImg(id, false));
         card.appendChild(el('div', 'nm', DEX[id].name));
         card.appendChild(el('div', 'types', DEX[id].types.map(UI.typeTag).join(' ')));
         card.onclick = () => { window.SFX.select(); UI.closeModal(); resolve(id); };

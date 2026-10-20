@@ -9,6 +9,7 @@
   const ARENA = { x0: 24, x1: 336, y0: 112, y1: 508 };
   const UNIT_R = 18;
   const S = 1; // escala dos sprites na arena
+  const FEET_Y = 22; // altura dos pés em relação ao centro da unidade (sombra)
   const CATCH_HP = .35;
 
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -689,8 +690,9 @@
       if (u.state === 'absorbed') tint = '#ffffff';
       const st = u.status;
       let shakeX = st.para > 0 ? rand(-2, 2) : 0;
-      ART.drawMon(ctx, u.mon.id, u.mon.shiny, back, u.x + shakeX, u.y + yOff - (u.state === 'faint' ? -u.faintT * 30 : 0), {
-        flip, scale: scale * S, alpha: u.alpha, tint, flash: u.flash > 0 ? (Math.floor(u.flash * 10) % 2 ? .9 : 0) : 0,
+      // pés apoiados na sombra
+      ART.drawMon(ctx, u.mon.id, u.mon.shiny, back, u.x + shakeX, u.y + FEET_Y + yOff - (u.state === 'faint' ? -u.faintT * 30 : 0), {
+        feet: true, flip, scale: scale * S, alpha: u.alpha, tint, flash: u.flash > 0 ? (Math.floor(u.flash * 10) % 2 ? .9 : 0) : 0,
       });
       if (u.state === 'cast' && u.castMove && u.castMove.charge) {
         // brilho ao carregar
@@ -843,7 +845,7 @@
         }
         case 'ghost': {
           if (e.u.removed) break;
-          ART.drawMon(ctx, e.u.mon.id, e.u.mon.shiny, e.u.side === 'p', e.x, e.y, { scale: S, alpha: .3 * (1 - k), tint: '#ffffff', flip: e.u.side === 'p' ? !e.u.faceRight : e.u.faceRight });
+          ART.drawMon(ctx, e.u.mon.id, e.u.mon.shiny, e.u.side === 'p', e.x, e.y + FEET_Y, { feet: true, scale: S, alpha: .3 * (1 - k), tint: '#ffffff', flip: e.u.side === 'p' ? !e.u.faceRight : e.u.faceRight });
           break;
         }
         case 'sparkle': {

@@ -1,4 +1,4 @@
-// Gráficos: Pokémon (PokéAPI) e sprites do GBA (FireRed, gerados por tools/build_gba.py).
+// Gráficos: Pokémon (PokéAPI, Black/White de corpo inteiro) e sprites do GBA (FireRed, gerados por tools/build_gba.py).
 (function () {
   const SHEETS = {};
   const SHEET_FILES = {
@@ -27,41 +27,46 @@
     return [c, x];
   }
 
+  // Sprites dos Pokémon: quadros de 96x96 com os pés na linha MON_FEET (tools/build_assets.py)
+  const MON_SIZE = 96, MON_FEET = 90;
+
   function cell(id, w, h) {
     const k = id - 1;
     return [(k % 16) * w, Math.floor(k / 16) * h];
   }
 
-  // Sprite 64x64 de um Pokémon, opcionalmente pintado de uma cor só (silhueta)
+  // Sprite 96x96 de um Pokémon, opcionalmente pintado de uma cor só (silhueta)
   const silCache = {};
   function monCanvas(id, shiny, back, tint) {
     const sheet = (back ? 'back' : 'front') + (shiny ? '_shiny' : '');
     const key = sheet + id + (tint || '');
     if (silCache[key]) return silCache[key];
-    const [c, x] = canvas(64, 64);
-    const [sx, sy] = cell(id, 64, 64);
-    x.drawImage(SHEETS[sheet], sx, sy, 64, 64, 0, 0, 64, 64);
+    const Z = MON_SIZE;
+    const [c, x] = canvas(Z, Z);
+    const [sx, sy] = cell(id, Z, Z);
+    x.drawImage(SHEETS[sheet], sx, sy, Z, Z, 0, 0, Z, Z);
     if (tint) {
       x.globalCompositeOperation = 'source-atop';
       x.fillStyle = tint;
-      x.fillRect(0, 0, 64, 64);
+      x.fillRect(0, 0, Z, Z);
     }
     silCache[key] = c;
     return c;
   }
 
-  // Desenha centralizado em (cx, cy)
+  // Desenha centralizado em (cx, cy); com o.feet, (cx, cy) é o ponto dos pés
   function drawMon(ctx, id, shiny, back, cx, cy, o = {}) {
     const s = o.scale || 1;
     const img = monCanvas(id, shiny, back, o.tint);
+    const h = MON_SIZE / 2 * s, top = o.feet ? -MON_FEET * s : -h;
     ctx.save();
     if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
     ctx.translate(Math.round(cx), Math.round(cy));
     if (o.flip) ctx.scale(-1, 1);
-    ctx.drawImage(img, -32 * s, -32 * s, 64 * s, 64 * s);
+    ctx.drawImage(img, -h, top, 2 * h, 2 * h);
     if (o.flash) {
       ctx.globalAlpha = (o.alpha ?? 1) * o.flash;
-      ctx.drawImage(monCanvas(id, shiny, back, '#ffffff'), -32 * s, -32 * s, 64 * s, 64 * s);
+      ctx.drawImage(monCanvas(id, shiny, back, '#ffffff'), -h, top, 2 * h, 2 * h);
     }
     ctx.restore();
   }
@@ -150,7 +155,7 @@
   }
 
   window.ART = {
-    load, SHEETS, canvas, drawMon, monCanvas, iconStyle, drawIcon, itemStyle, drawItem,
+    load, SHEETS, MON_SIZE, MON_FEET, canvas, drawMon, monCanvas, iconStyle, drawIcon, itemStyle, drawItem,
     drawChar, drawPortrait, drawTile, drawBuilding, buildingSize, drawBadge, badgeStyle, arena,
   };
 })();
