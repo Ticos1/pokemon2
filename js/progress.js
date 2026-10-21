@@ -1,28 +1,34 @@
-// Progressão: experiência, times de treinadores, Pokémon selvagens e sorteio dos eventos.
+// Progressão: experiência, times de treinadores e Pokémon selvagens de cada parada.
 (function () {
-  const R = window.RULES, M = window.MON;
+  const R = window.RULES, M = window.MON, K = window.KANTO;
   const { DEX } = R;
 
   // Quem fica no banco também ganha experiência (como o Exp. All)
   const BENCH_XP = .85;
-  const XP_MULT = { wild: 1, trainer: 1.5, rocket: 1.8, rival: 2, gym: 2, elite: 2, champion: 2 };
+  const XP_MULT = { wild: 1, trainer: 1.5, rocket: 1.8, rival: 2, boss: 2, legend: 1.5, gym: 2, elite: 2, champion: 2 };
 
-  function xpFor(enemy, mult) {
-    return Math.round((enemy.lvl * 12 + 50) * mult * (DEX[enemy.id].exp / 140 + .5) * .9);
+  // Experiência: base da espécie x nível / 7 (Game Boy), ajustada pela diferença de nível como na
+  // 5ª geração: quem está abaixo do inimigo ganha mais, quem está acima ganha menos
+  // O começo da jornada tem poucas batalhas até o Brock e o Blue em Cerulean; o fim tem muitas
+  const xpScale = lvl => Math.min(1.3, Math.max(.55, 1.45 - lvl / 40));
+  function xpFor(enemy, mult, lvl = enemy.lvl) {
+    const k = Math.pow((2 * enemy.lvl + 10) / (enemy.lvl + lvl + 10), 2.5);
+    return Math.round(DEX[enemy.id].exp * enemy.lvl / 7 * mult * k * xpScale(enemy.lvl));
   }
 
   // Dá experiência: participantes ganham 100%, quem ficou no banco ganha BENCH_XP.
   // Retorna mensagens de nível e golpes novos, e quem pode evoluir.
   function awardXp(party, result, kind) {
     const mult = XP_MULT[kind] || 1;
-    let total = 0;
-    for (const e of result.defeated) total += xpFor(e, mult);
-    if (result.caught) total += xpFor(result.caught, mult);
+    const foes = [...result.defeated, ...(result.caught ? [result.caught] : [])];
+    const lead = party.find(m => result.participants.has(m.uid)) || party[0];
+    const total = foes.reduce((s, e) => s + xpFor(e, mult, lead.lvl), 0);
     const log = [];
     const evolve = [];
     for (const mon of party) {
       if (mon.hp <= 0) continue;
-      const gain = Math.round(total * (result.participants.has(mon.uid) ? 1 : BENCH_XP));
+      const share = result.participants.has(mon.uid) ? 1 : BENCH_XP;
+      const gain = Math.round(foes.reduce((s, e) => s + xpFor(e, mult, mon.lvl), 0) * share);
       if (!gain) continue;
       mon.xp += gain;
       const startLvl = mon.lvl;
@@ -61,8 +67,8 @@
     return M.create(M.evolvedFor(id, lvl), lvl, opts);
   }
 
-  function teamFromPool(pool, n, lvl, slot) {
-    const fair = pool.filter(id => M.bst(id) <= M.maxBstFor(slot));
+  function teamFromPool(pool, n, lvl, stage) {
+    const fair = pool.filter(id => M.bst(id) <= M.maxBstFor(stage));
     if (fair.length) pool = fair;
     const out = [];
     for (let i = 0; i < n; i++) {
@@ -72,36 +78,47 @@
     return out;
   }
 
-  function teamSize(slot, mode, extra = 0) {
+  function teamSize(stage, mode, extra = 0) {
     const min = mode === 2 ? 2 : 1;
-    const stage = R.STAGE[slot];
     const max = stage < 1 ? 1 : stage < 2 ? 2 : stage < 5 ? 3 : 4;
     return Math.min(6, Math.max(min, M.randInt(min, max) + extra));
   }
 
-  function trainer(slot, mode) {
-    const cls = M.pick(R.TRAINER_CLASSES.filter(c => !c.minStage || R.STAGE[slot] >= c.minStage));
-    const lvl = R.SLOT_LEVEL[slot];
-    const team = teamFromPool(cls.pool, teamSize(slot, mode), lvl - 1, slot);
+  // Classe de treinador da parada: a fixa ou uma das que aparecem na área
+  function trainerClass(stop) {
+    const area = K.AREAS[stop.area] || {};
+    const key = stop.cls || M.pick(area.trainers || ['youngster', 'lass', 'bug']);
+    return { key, ...R.TRAINER_CLASSES[key] };
+  }
+
+  function trainer(stop, mode, cls = trainerClass(stop)) {
+    const team = teamFromPool(cls.pool, teamSize(stop.stage, mode), stop.lvl - 1, stop.stage);
     return { cls, team, money: cls.money * Math.max(...team.map(m => m.lvl)) };
   }
 
-  function rocket(slot, mode) {
-    const lvl = R.SLOT_LEVEL[slot];
-    const team = teamFromPool(R.ROCKET_POOL, teamSize(slot, mode, 1), lvl, slot);
+  // Dupla de treinadores: cada um com 1 ou 2 Pokémon, batalha 2x2
+  function double(stop) {
+    const a = trainerClass(stop);
+    let b = trainerClass(stop);
+    if (Math.random() < .5) b = a; // gêmeos, dois da mesma classe
+    const n = stop.stage < 2 ? 1 : M.randInt(1, 2);
+    const team = [...teamFromPool(a.pool, n, stop.lvl - 1, stop.stage), ...teamFromPool(b.pool, n, stop.lvl - 1, stop.stage)];
+    return { a, b, team, money: (a.money + b.money) * Math.max(...team.map(m => m.lvl)) };
+  }
+
+  function rocket(stop, mode) {
+    const cls = R.TRAINER_CLASSES.rocket;
+    const team = teamFromPool(cls.pool, teamSize(stop.stage, mode, 1), stop.lvl, stop.stage);
     return { team, money: 40 * Math.max(...team.map(m => m.lvl)) };
   }
 
-  function rival(starter, slot, mode) {
-    const lvl = R.SLOT_LEVEL[slot] + 1;
-    const team = [makeMon(16, lvl - 2)];
-    const stage = R.STAGE[slot];
-    if (stage >= 2) team.push(makeMon(M.pick([63, 133, 66, 58]), lvl - 1));
-    if (stage >= 4) team.push(makeMon(M.pick([111, 102, 129, 92]), lvl - 1));
-    if (stage >= 6) team.push(makeMon(M.pick([59, 130, 103, 65]), lvl));
-    if (mode === 2 && team.length < 2) team.push(makeMon(19, lvl - 2));
-    team.push(makeMon(R.RIVAL_STARTER[starter], lvl + 1, { minIv: 15 }));
-    return { team, money: 60 * (lvl + 1) };
+  // Time do Blue no encontro n (n = 6 é o Campeão)
+  function rival(starter, n, mode) {
+    const rs = R.RIVAL_STARTER[starter];
+    const [A, B] = R.RIVAL_EXTRA[rs];
+    const team = R.RIVAL_TEAMS[n].map(([id, l]) => makeMon(id === 'S' ? rs : id === 'A' ? A : id === 'B' ? B : id, l, { minIv: n >= 5 ? 25 : 15 }));
+    if (mode === 2 && team.length < 2) team.unshift(makeMon(19, team[0].lvl - 1));
+    return { team, money: 60 * Math.max(...team.map(m => m.lvl)) };
   }
 
   function gym(i) {
@@ -115,53 +132,24 @@
   }
 
   function champion(starter) {
-    const t = R.CHAMPION_TEAMS[starter] || R.CHAMPION_TEAMS[1];
-    return { team: t.map(([id, l]) => M.create(id, l, { minIv: 25 })), money: 5000 };
+    return { team: rival(starter, 6, 1).team, money: 10000 };
   }
 
-  function wild(slot, opts = {}) {
-    let id, lvl = R.SLOT_LEVEL[slot] + M.randInt(-1, 1) + (opts.bonus || 0);
-    if (opts.fish) id = M.weighted(R.FISH_POOL);
-    else if (R.STAGE[slot] >= 4 && Math.random() < .025) { id = M.pick([144, 145, 146]); lvl += 4; }
-    else if (R.STAGE[slot] >= 6 && Math.random() < .004) { id = M.pick([150, 151]); lvl += 6; }
-    else id = M.wildSpecies(slot);
-    const mon = makeMon(id, Math.max(2, lvl), { shiny: M.rollShiny(opts.shinyMult || 1) });
-    return mon;
+  function boss(key) {
+    const b = R.BOSSES[key];
+    return { boss: b, team: b.team.map(([id, l]) => M.create(id, l, { minIv: 20 })), money: b.money };
   }
 
-  // Sorteia os eventos aleatórios da rota (o jogador não escolhe)
-  const EVENT_WEIGHTS = [
-    ['wild', 30], ['trainer', 30], ['item', 8], ['fishing', 9],
-    ['rocket', 9], ['rival', 8], ['gift', 6],
-  ];
-
-  // Eventos que podem repetir em seguida (os outros não aparecem duas vezes seguidas)
-  const COMMON = new Set(['wild', 'trainer']);
-
-  function buildRoute() {
-    const used = {};
-    let prev = null;
-    return R.ROUTE.map((slot, i) => {
-      if (slot !== 'R') { prev = slot; return slot; }
-      if (i === 0) { prev = 'wild'; return 'wild'; }
-      let pick = 'trainer';
-      for (let tries = 0; tries < 30; tries++) {
-        const ev = M.weighted(EVENT_WEIGHTS);
-        if (ev === prev && !COMMON.has(ev)) continue;
-        if ((ev === 'rocket' || ev === 'rival') && R.STAGE[i] < 1) continue;
-        if (ev === 'rival' && used.rival >= 3) continue;
-        if (ev === 'gift' && used.gift >= 2) continue;
-        if (ev === 'item' && used.item >= 3) continue;
-        pick = ev;
-        break;
-      }
-      used[pick] = (used[pick] || 0) + 1;
-      prev = pick;
-      return pick;
-    });
+  // Pokémon selvagem da área (ou da pesca). opts.id = espécie fixa (lendários, Snorlax)
+  function wild(stop, opts = {}) {
+    const area = K.AREAS[stop.area] || {};
+    let lvl = (opts.lvl || stop.lvl || 5) + (opts.id ? 0 : M.randInt(-1, 1)) + (opts.bonus || 0);
+    let id = opts.id;
+    if (!id) id = M.weighted(opts.fish ? K.FISH : K.POOLS[opts.pool || area.pool] || K.POOLS.route1);
+    return makeMon(id, Math.max(2, lvl), { shiny: M.rollShiny(opts.shinyMult || 1), minIv: opts.id ? 15 : 0 });
   }
 
   window.PROGRESS = {
-    XP_MULT, awardXp, levelUp, evolve, makeMon, trainer, rocket, rival, gym, elite, champion, wild, buildRoute,
+    XP_MULT, awardXp, levelUp, evolve, makeMon, trainerClass, trainer, double, rocket, rival, gym, elite, champion, boss, wild,
   };
 })();

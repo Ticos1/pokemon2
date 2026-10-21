@@ -1,9 +1,9 @@
 // Jogo salvo no navegador (localStorage): grava antes de cada parada da rota.
 // Se a aba fechar no meio de uma batalha, a partida volta para o começo daquela parada.
 (function () {
-  const KEY = 'pokemon-jornada:save:v1';
+  const KEY = 'pokemon-jornada:save:v2';
   const PREFS = 'pokemon-jornada:prefs';
-  const FIELDS = ['starter', 'mode', 'party', 'pc', 'bag', 'money', 'badges', 'route', 'step', 'stats', 'seen'];
+  const FIELDS = ['starter', 'mode', 'party', 'pc', 'bag', 'money', 'badges', 'route', 'step', 'stats', 'seen', 'coins', 'eggs', 'fossils', 'weather', 'champion'];
 
   function storage() {
     try { return window.localStorage; } catch (e) { return null; }
@@ -12,7 +12,7 @@
   function write(G, elapsed) {
     const s = storage();
     if (!s) return;
-    const data = { v: 1, elapsed, savedAt: Date.now() };
+    const data = { v: 2, elapsed, savedAt: Date.now() };
     for (const k of FIELDS) data[k] = G[k];
     try { s.setItem(KEY, JSON.stringify(data)); } catch (e) { /* cheio ou bloqueado */ }
   }
@@ -22,7 +22,7 @@
     if (!s) return null;
     try {
       const data = JSON.parse(s.getItem(KEY));
-      if (!data || data.v !== 1 || !Array.isArray(data.party) || !data.party.length) return null;
+      if (!data || data.v !== 2 || !Array.isArray(data.party) || !data.party.length) return null;
       return data;
     } catch (e) {
       return null;

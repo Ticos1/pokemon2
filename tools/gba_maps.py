@@ -19,7 +19,8 @@ NUM_PALS_IN_PRIMARY = 7
 def snake(name):
     # gTileset_PewterCity -> pewter_city
     name = name.replace('gTileset_', '')
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+    # SSAnne -> ss_anne (siglas ficam juntas)
+    return re.sub(r'(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', '_', name).lower()
 
 
 def read_pal(path):

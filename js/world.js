@@ -22,7 +22,57 @@
   }
 
   function newWorld() {
-    return { px: 0, walking: false, target: null, onArrive: null, dist: 0, objects: [], dir: 'right', follower: true, bubble: null };
+    return { px: 0, walking: false, target: null, onArrive: null, dist: 0, objects: [], dir: 'right', follower: true, bubble: null, map: null };
+  }
+
+  // Dentro de cavernas e prédios o fundo é o mapa de verdade do andar (assets/gba/maps): a câmera
+  // passa por ele enquanto o treinador anda. key = null volta para a rota.
+  function setMap(w, key, dark) {
+    if (!key) { w.map = null; return; }
+    if (w.map && w.map.key === key) return;
+    w.map = { key, start: w.px, dark: !!dark };
+    w.objects = w.objects.filter(o => o.keep);
+    ART.loadMap(key);
+  }
+
+  // Altura da câmera com mais chão (pixels que não são o vazio preto) na faixa onde o treinador anda
+  function floorY(img) {
+    const mid = (img.height - LH) / 2;
+    try {
+      const [c, x] = ART.canvas(img.width, img.height);
+      x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, img.width, img.height).data;
+      const lit = new Array(img.height).fill(0);
+      for (let y = 0; y < img.height; y++) {
+        for (let xx = 0; xx < Math.min(img.width, 360); xx += 4) {
+          const k = (y * img.width + xx) * 4;
+          if (d[k] + d[k + 1] + d[k + 2] > 60) lit[y]++;
+        }
+      }
+      let best = mid, bestScore = -1;
+      for (let cy = 0; cy <= img.height - LH; cy += 8) {
+        let sc = 0;
+        for (let y = cy + FEET_Y - 40; y < cy + FEET_Y + 16; y++) sc += lit[y];
+        sc -= Math.abs(cy - mid) * .05; // empate: perto do meio do mapa
+        if (sc > bestScore) { bestScore = sc; best = cy; }
+      }
+      return best;
+    } catch (e) {
+      return mid; // index.html aberto direto do disco: o navegador não deixa ler os pixels
+    }
+  }
+
+  function drawMap(w) {
+    const img = ART.mapImage(w.map.key);
+    lctx.fillStyle = '#000';
+    lctx.fillRect(0, 0, LW, LH);
+    if (!img) return;
+    const mw = img.width, mh = img.height;
+    // a câmera anda na metade da velocidade do treinador e para no fim do mapa
+    const cx = mw <= LW ? -(LW - mw) / 2 : Math.min(mw - LW, Math.max(0, (w.px - w.map.start) * .5));
+    if (w.map.cy === undefined) w.map.cy = mh <= LH ? -(LH - mh) / 2 : floorY(img);
+    const cy = w.map.cy;
+    lctx.drawImage(img, -Math.round(cx), -Math.round(cy));
   }
 
   function walkTo(w, x) {
@@ -110,8 +160,11 @@
   function draw(ctx, w, party) {
     const cx = camX(w);
     const c0 = Math.floor(cx / 16);
-    for (let c = c0; c <= c0 + 12; c++) {
-      for (let r = 0; r < ROWS; r++) ART.drawTile(lctx, tileAt(w, c, r), c * 16 - cx, r * 16);
+    if (w.map) drawMap(w);
+    else {
+      for (let c = c0; c <= c0 + 12; c++) {
+        for (let r = 0; r < ROWS; r++) ART.drawTile(lctx, tileAt(w, c, r), c * 16 - cx, r * 16);
+      }
     }
     // objetos e personagens ordenados pelo y dos pés
     const step = w.walking ? [1, 0, 2, 0][Math.floor(w.dist / 8) % 4] : 0;
@@ -126,6 +179,13 @@
     if (lead && w.follower) drawFollower(ctx, lead, (PLAYER_SX - 22) * 2, FEET_Y * 2 - 2, w);
     // textos e efeitos em resolução cheia
     for (const o of w.objects) if (o.drawHi) o.drawHi(ctx, cx);
+    // cavernas escuras: só a luz em volta do treinador (o Flash clareia)
+    if (w.map && w.map.dark) {
+      const g = ctx.createRadialGradient(PLAYER_SX * 2, FEET_Y * 2 - 20, 60, PLAYER_SX * 2, FEET_Y * 2 - 20, w.map.flash ? 420 : 230);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.82)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, LH * 2);
+    }
+    if (w.weather) ART.drawWeather(ctx, w.weather, performance.now() / 1000);
     if (w.bubble) {
       const o = w.bubble;
       const bx = (o.x - cx) * 2, by = FEET_Y * 2 - 58;
@@ -285,7 +345,7 @@
   }
 
   window.WORLD = {
-    PLAYER_SX, FEET_Y, TOP_Y, newWorld, walkTo, update, draw,
+    PLAYER_SX, FEET_Y, TOP_Y, newWorld, setMap, walkTo, update, draw,
     npc, stepAside, tallGrass, lake, itemBall, building, plaza, sign, fishingSpots,
   };
 })();

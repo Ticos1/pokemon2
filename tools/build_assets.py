@@ -4,6 +4,7 @@
 
 Uso: python3 tools/build_assets.py           (cache em tools/.cache)
      python3 tools/build_assets.py sprites   (só as folhas dos Pokémon)
+     python3 tools/build_assets.py items     (só os ícones dos itens)
 """
 import io
 import json
@@ -158,7 +159,9 @@ def build_sheet(name, path_fmt, size):
 
 
 ITEMS = ["poke-ball", "great-ball", "ultra-ball", "potion", "super-potion",
-         "hyper-potion", "revive", "rare-candy", "nugget"]
+         "hyper-potion", "revive", "rare-candy", "nugget",
+         "fire-stone", "water-stone", "thunder-stone", "leaf-stone", "moon-stone",
+         "master-ball", "safari-ball", "dome-fossil", "helix-fossil", "old-amber", "coin-case"]
 
 
 def build_items():
@@ -178,6 +181,9 @@ if __name__ == "__main__":
     import sys
     os.makedirs(CACHE, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
+    if "items" in sys.argv[1:]:
+        build_items()
+        sys.exit()
     only_sprites = "sprites" in sys.argv[1:]
     if not only_sprites:
         build_data()

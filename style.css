@@ -41,10 +41,14 @@ button { font-family: inherit; cursor: pointer; }
   color: #fff; font-size: 8px;
 }
 .hud-row { display: flex; align-items: center; gap: 4px; height: 18px; }
-.step { min-width: 38px; color: #f8e050; }
-#prog { display: flex; gap: 1px; flex: 1; }
+.step { min-width: 40px; color: #f8e050; font-size: 7px; }
+.place { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#prog { display: flex; gap: 1px; flex: none; max-width: 150px; }
+.badges-hud { display: flex; gap: 1px; margin-left: 4px; }
+.badges-hud i { display: block; width: 10px; height: 10px; image-rendering: pixelated; }
+.badges-hud i.dim { filter: grayscale(1) brightness(.5); }
 .node {
-  flex: 1 1 0; min-width: 0; height: 16px; border-radius: 2px; overflow: hidden;
+  flex: none; width: 13px; height: 16px; border-radius: 2px; overflow: hidden;
   background: #384068; color: #a8b0d0;
   display: flex; align-items: center; justify-content: center;
   font-size: 7px;
@@ -58,7 +62,7 @@ button { font-family: inherit; cursor: pointer; }
 .node.dim i { filter: grayscale(1) brightness(.6); }
 .node.champ { background: #803850; color: #f8e050; }
 .stat { display: inline-flex; align-items: center; gap: 1px; }
-.stat .ico { width: 18px; height: 18px; background: url(assets/items.png) no-repeat; background-size: 162px 18px; display: inline-block; image-rendering: pixelated; }
+.stat .ico { width: 18px; height: 18px; background: url(assets/items.png) no-repeat; background-size: 360px 18px; display: inline-block; image-rendering: pixelated; }
 .money { color: #f8e050; margin-left: 4px; }
 .hud-buttons { margin-left: auto; display: flex; gap: 3px; }
 .hud-buttons button {

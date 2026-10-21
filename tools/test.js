@@ -35,26 +35,46 @@ test('gráficos citados pelo mapa existem em assets/gba.js', () => {
   for (const e of R.ELITE) assert.ok(e.look in window.GBA.people && e.arena in window.GBA.arenas.reduce((o, a) => ({ ...o, [a]: 1 }), {}), e.name);
 });
 
-test('rota tem 30 paradas (2 eventos antes de cada ginásio), 8 ginásios, Elite dos 4 e Campeão', () => {
-  for (let i = 0; i < 50; i++) {
+const K = global.window.KANTO;
+
+test('jornada passa por Kanto inteiro: 8 ginásios em ordem, Elite dos 4, Campeão e a Caverna Desconhecida', () => {
+  for (let r = 0; r < 30; r++) {
     const st = J.newState(M.pick([1, 4, 7]), 1);
-    assert.strictEqual(st.route.length, R.SLOT_LEVEL.length);
-    assert.strictEqual(st.route.filter(x => x === 'gym').length, 8);
-    assert.strictEqual(st.route.filter(x => x === 'elite').length, 4);
-    assert.strictEqual(st.route[st.route.length - 1], 'champion');
-    assert.strictEqual(st.route[0], 'wild');
+    const route = st.route;
+    // as bifurcações viram o caminho escolhido
+    for (let i = 0; i < route.length; i++) if (route[i].ev === 'choice') K.expandChoice(route, i, M.randInt(0, 1));
+    assert.deepStrictEqual(route.filter(s => s.ev === 'gym').map(s => s.n), [0, 1, 2, 3, 4, 5, 6, 7]);
+    assert.deepStrictEqual(route.filter(s => s.ev === 'elite').map(s => s.n), [0, 1, 2, 3]);
+    assert.strictEqual(route.filter(s => s.ev === 'champion').length, 1);
+    assert.strictEqual(route[route.length - 1].ev, 'legend');
+    assert.strictEqual(route[route.length - 1].id, 150);
+    for (const a of ['mtmoon', 'ssanne', 'rocktunnel', 'tower', 'hideout', 'silph', 'mansion', 'powerplant', 'victory', 'unknown']) {
+      assert.ok(route.some(s => s.area === a), `falta ${a}`);
+    }
+    for (const s of route) {
+      assert.ok(K.AREAS[s.area] || s.ev === 'choice', `área ${s.area}`);
+      const map = K.AREAS[s.area] && K.AREAS[s.area].maps && K.AREAS[s.area].maps[s.floor];
+      if (map) assert.ok(window.GBA.maps[map], `mapa ${map}`);
+      assert.ok(!['R'].includes(s.ev), 'evento sorteado não resolvido');
+    }
+    // a pesca só acontece onde tem água
+    for (const s of route) if (s.ev === 'fishing') assert.ok(K.AREAS[s.area].water || K.AREAS[s.area].sea || s.area === 'route12', s.area);
   }
 });
 
 test('todo evento de batalha gera inimigos válidos', () => {
   const st = J.newState(4, 2);
   for (let i = 0; i < st.route.length; i++) {
-    for (const ev of ['wild', 'fishing', 'trainer', 'rocket', 'rival', 'gym', 'elite', 'champion']) {
-      st.route[i] = ev;
+    if (st.route[i].ev === 'choice') K.expandChoice(st.route, i, 0);
+    const base = st.route[i];
+    for (const ev of ['wild', 'fishing', 'trainer', 'double', 'rocket', 'rival', 'legend', 'marowak', 'fossil', 'quiz', 'boss', 'gym', 'elite', 'champion']) {
+      if (!base.area || !K.AREAS[base.area].pool && ev === 'wild') continue;
+      st.route[i] = { ...base, ev, n: (i % 4) + (ev === 'gym' || ev === 'rival' ? 2 : 0), id: base.id || 144, key: R.BOSSES[base.key] ? base.key : 'giovanni1', lvl: base.lvl || 20 };
       const enc = J.encounter(st, i);
-      assert.ok(enc.enemies.length > 0, `${ev} em ${i}`);
+      assert.ok(enc && enc.enemies.length > 0, `${ev} em ${i}`);
       for (const m of enc.enemies) assert.ok(R.DEX[m.id] && m.hp > 0 && m.maxhp > 0, `${ev} em ${i}`);
     }
+    st.route[i] = base;
   }
 });
 
@@ -102,15 +122,10 @@ test('jogo salvo volta igual', () => {
   assert.strictEqual(window.SAVE.read(), null);
 });
 
-test('jogo salvo da versão de 22 paradas continua na mesma parada', () => {
-  const old = ['wild', 'gym', 'trainer', 'gym', 'item', 'gym', 'rival', 'gym', 'wild', 'gym', 'gift', 'gym', 'rocket', 'gym', 'fishing', 'gym', 'trainer', 'elite', 'elite', 'elite', 'elite', 'champion'];
-  for (const [step, ev] of [[0, 'wild'], [3, 'gym'], [6, 'rival'], [16, 'trainer'], [19, 'elite'], [21, 'champion']]) {
-    const up = J.upgradeSave({ v: 1, route: old.slice(), step, seen: [], party: [M.create(1, 5)] });
-    assert.strictEqual(up.route.length, R.ROUTE.length);
-    assert.strictEqual(up.route[up.step], ev);
-    assert.strictEqual(up.route.filter(x => x === 'gym').length, 8);
-    R.ROUTE.forEach((x, i) => { if (x !== 'R') assert.strictEqual(up.route[i], x); });
-  }
+test('jogo salvo de versão antiga (rota sem as áreas) não continua', () => {
+  assert.strictEqual(J.upgradeSave({ v: 1, route: ['wild', 'gym'], step: 0, party: [M.create(1, 5)] }), null);
+  const st = J.newState(1, 1);
+  assert.ok(J.upgradeSave(JSON.parse(JSON.stringify({ ...st, v: 2 }))));
 });
 
 test('golpes de verdade: no máximo 4, todos válidos, e cada Pokémon tem pelo menos um', () => {
@@ -128,11 +143,41 @@ test('golpes de verdade: no máximo 4, todos válidos, e cada Pokémon tem pelo 
   assert.ok(next && next.lvl > 5 && next.move.name);
 });
 
-test('Pokémon de água não aparecem na grama alta', () => {
-  for (let slot = 0; slot < R.ROUTE.length; slot++) {
-    for (let i = 0; i < 40; i++) {
-      const id = M.wildSpecies(slot);
-      assert.ok(!R.DEX[id].types.includes('water'), `${R.DEX[id].name} na grama (parada ${slot})`);
-    }
+test('Pokémon de água não aparecem na grama alta das rotas', () => {
+  for (const [k, a] of Object.entries(K.AREAS)) {
+    if (a.kind !== 'walk' || !a.pool) continue;
+    for (const [id] of K.POOLS[a.pool]) assert.ok(!R.DEX[id].types.includes('water'), `${R.DEX[id].name} em ${k}`);
   }
+});
+
+test('perder para um lendário põe um Centro Pokémon como próxima parada', () => {
+  const st = J.newState(1, 1);
+  const i = st.route.findIndex(s => s.ev === 'legend');
+  const n = st.route.length;
+  J.insertCenter(st, i);
+  assert.strictEqual(st.route.length, n + 1);
+  assert.strictEqual(st.route[i + 1].ev, 'center');
+});
+
+test('Safári, cassino, ovo, clima e pedras funcionam', () => {
+  const st = J.newState(7, 1);
+  const stop = { area: 'safari', lvl: 25, stage: 4 };
+  let caught = 0;
+  for (let k = 0; k < 200; k++) {
+    const s = { mon: J.safariMon(stop), angry: 0, eating: 0 };
+    for (let t = 0; t < 30; t++) { const r = J.safariTurn(s, 'ball'); if (r === 'caught') { caught++; break; } if (r === 'fled') break; }
+  }
+  assert.ok(caught > 20 && caught < 190, `capturou ${caught}/200 no Safári`);
+  st.money = 1e6;
+  for (let k = 0; k < 20; k++) J.casinoAuto(st);
+  assert.ok(st.coins >= 0);
+  J.giveEgg(st);
+  let born = [];
+  for (let k = 0; k < 6 && !born.length; k++) born = J.tickEggs(st);
+  assert.strictEqual(born.length, 1);
+  J.startWeather(st);
+  for (let k = 0; k < 10; k++) J.tickWeather(st);
+  assert.strictEqual(st.weather, null);
+  assert.strictEqual(J.stoneTarget(M.create(25, 20), 'thunderstone'), 26);
+  assert.strictEqual(J.stoneTarget(M.create(25, 20), 'firestone'), null);
 });

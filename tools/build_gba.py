@@ -29,6 +29,10 @@ PEOPLE = {
     'swimmer': 'swimmer_m_land', 'blackbelt': 'black_belt', 'channeler': 'channeler', 'nerd': 'scientist',
     'birdkeeper': 'camper', 'tamer': 'cooltrainer_m', 'cooltrainer': 'cooltrainer_f', 'beauty': 'beauty',
     'gentleman': 'gentleman', 'sailor': 'sailor', 'picnicker': 'picnicker', 'maniac': 'poke_maniac',
+    # áreas de Kanto
+    'captain': 'captain', 'fuji': 'mr_fuji', 'bill': 'bill', 'mom': 'mom', 'burglar': 'balding_man',
+    'psychic': 'man', 'rocker': 'rocker', 'warden': 'old_man_2', 'rocketf': 'rocket_f', 'woman': 'woman_1',
+    'boy': 'boy', 'scientist': 'scientist',
 }
 
 # Retratos de batalha (64x64)
@@ -77,6 +81,42 @@ ARENAS = {
     'agatha': 'PokemonLeague_AgathasRoom_Layout', 'lance': 'PokemonLeague_LancesRoom_Layout',
     'champion': 'PokemonLeague_ChampionsRoom_Layout',
 }
+# Arenas das áreas de Kanto: piso e parede do fundo de um andar de cada lugar
+AREA_ARENAS = {
+    'cave': 'MtMoon_B1F_Layout', 'tunnel': 'RockTunnel_1F_Layout', 'tower': 'PokemonTower_3F_Layout',
+    'silph': 'SilphCo_5F_Layout', 'ship': 'SSAnne_Deck_Layout', 'mansion': 'PokemonMansion_1F_Layout',
+    'seafoam': 'SeafoamIslands_1F_Layout', 'plant': 'PowerPlant_Layout', 'casino': 'CeladonCity_GameCorner_Layout',
+    'dojo': 'SaffronCity_Dojo_Layout', 'victory': 'VictoryRoad_1F_Layout', 'unknown': 'CeruleanCave_1F_Layout',
+    'forest': 'ViridianForest_Layout', 'diglett': 'DiglettsCave_B1F_Layout', 'museum': 'PewterCity_Museum_1F_Layout',
+    'lab': 'CinnabarIsland_PokemonLab_Entrance_Layout', 'safari': 'SafariZone_Center_Layout',
+}
+ARENAS.update(AREA_ARENAS)
+
+# Mapas inteiros de cada andar (fundo das áreas: a câmera passa por eles enquanto o treinador anda)
+AREA_MAPS = {
+    'forest': 'ViridianForest', 'museum': 'PewterCity_Museum_1F',
+    'mtmoon_1f': 'MtMoon_1F', 'mtmoon_b1f': 'MtMoon_B1F', 'mtmoon_b2f': 'MtMoon_B2F',
+    'bill': 'Route25_SeaCottage', 'daycare': 'Route5_PokemonDayCare', 'underground': 'UndergroundPath_NorthSouthTunnel',
+    'fanclub': 'VermilionCity_PokemonFanClub',
+    'ssanne_deck': 'SSAnne_Deck', 'ssanne_1f': 'SSAnne_1F_Corridor', 'ssanne_2f': 'SSAnne_2F_Corridor',
+    'ssanne_captain': 'SSAnne_CaptainsOffice', 'diglett': 'DiglettsCave_B1F',
+    'rocktunnel_1f': 'RockTunnel_1F', 'rocktunnel_b1f': 'RockTunnel_B1F',
+    **{f'tower_{i}f': f'PokemonTower_{i}F' for i in range(1, 8)},
+    'deptstore': 'CeladonCity_DepartmentStore_1F', 'condo': 'CeladonCity_Condominiums_RoofRoom',
+    'casino': 'CeladonCity_GameCorner', 'prizeroom': 'CeladonCity_GameCorner_PrizeRoom',
+    **{f'hideout_b{i}f': f'RocketHideout_B{i}F' for i in range(1, 5)},
+    'safari_center': 'SafariZone_Center', 'safari_east': 'SafariZone_East',
+    'safari_north': 'SafariZone_North', 'safari_west': 'SafariZone_West', 'warden': 'FuchsiaCity_WardensHouse',
+    **{f'silph_{i}f': f'SilphCo_{i}F' for i in range(1, 12)},
+    'dojo': 'SaffronCity_Dojo',
+    'route19': 'Route19', 'route20': 'Route20', 'route21': 'Route21_North',
+    **{f'seafoam_{f}': f'SeafoamIslands_{f.upper()}' for f in ['1f', 'b1f', 'b2f', 'b3f', 'b4f']},
+    **{f'mansion_{f}': f'PokemonMansion_{f.upper()}' for f in ['1f', '2f', '3f', 'b1f']},
+    'lab': 'CinnabarIsland_PokemonLab_ExperimentRoom', 'powerplant': 'PowerPlant',
+    **{f'victory_{i}f': f'VictoryRoad_{i}F' for i in range(1, 4)},
+    'unknown_1f': 'CeruleanCave_1F', 'unknown_2f': 'CeruleanCave_2F', 'unknown_b1f': 'CeruleanCave_B1F',
+}
+
 LEAGUE_ROOMS = {'lorelei', 'bruno', 'agatha', 'lance', 'champion'}
 
 LOW_W, LOW_H = 180, 320
@@ -163,10 +203,22 @@ def build_buildings(pret, meta):
     meta['buildings'] = out
 
 
-def floor_tile(r, blocks, w, h):
-    # metatile mais comum fora das 3 primeiras linhas (a parede)
+def floor_tile(r, blocks, w, h, skip_dark=False):
+    # metatile mais comum fora das 3 primeiras linhas (a parede); nas áreas, sem contar o vazio preto
+    def dark(mid):
+        img = r.metatile(mid).convert('L')
+        return skip_dark and sum(img.getpixel((x, y)) for x in range(16) for y in range(16)) / 256 < 40
     c = Counter(blocks[y * w + x] for y in range(3, h) for x in range(w))
-    return r.metatile(c.most_common(1)[0][0])
+    return r.metatile(next(m for m, _ in c.most_common() if not dark(m)))
+
+
+def build_maps(pret, meta):
+    os.makedirs(os.path.join(OUT, 'maps'), exist_ok=True)
+    meta['maps'] = {}
+    for key, layout in AREA_MAPS.items():
+        img = render_layout(pret, layout + '_Layout')[0].convert('RGB')
+        img.quantize(256, dither=Image.Dither.NONE).save(os.path.join(OUT, 'maps', key + '.png'), optimize=True)
+        meta['maps'][key] = list(img.size)
 
 
 def build_arenas(pret):
@@ -174,7 +226,7 @@ def build_arenas(pret):
         img, lay, blocks, r = render_layout(pret, layout)
         w, h = lay['width'], lay['height']
         canvas = Image.new('RGBA', (LOW_W, LOW_H), (16, 16, 24, 255))
-        floor = floor_tile(r, blocks, w, h)
+        floor = floor_tile(r, blocks, w, h, theme in AREA_ARENAS)
         for ty in range(0, LOW_H, 16):
             for tx in range(0, LOW_W, 16):
                 canvas.alpha_composite(floor, (tx, ty))
@@ -247,6 +299,7 @@ if __name__ == '__main__':
     build_tiles(pret, meta)
     build_buildings(pret, meta)
     build_arenas(pret)
+    build_maps(pret, meta)
     build_badges(pret)
     meta['arenas'] = sorted(list(ARENAS) + ['route'])
     with open(os.path.join(ROOT, 'assets', 'gba.js'), 'w') as f:

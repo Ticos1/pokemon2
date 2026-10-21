@@ -1,6 +1,6 @@
 // Instâncias de Pokémon: status, experiência, evolução e geração de times.
 (function () {
-  const { DEX, SHINY_RATE, STAGE } = window.RULES;
+  const { DEX, SHINY_RATE } = window.RULES;
   let uidCounter = 1;
 
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -68,22 +68,8 @@
     return d.hp + d.atk + d.def + d.spa + d.spd + d.spe;
   }
 
-  const EXCLUDE_WILD = new Set([1, 4, 7, 138, 140, 142, 132, 137]);
-  // Na grama alta não aparece Pokémon de água (Krabby, Tentacool, Goldeen...): eles vêm da pesca
-  const WILD_BASES = window.POKEDEX.filter(p => !p.from && !p.legendary && !EXCLUDE_WILD.has(p.id) && !p.types.includes('water'));
-
-  // Primeira rota (antes do Brock): só Pokémon de início de jogo
-  const ROUTE1 = [[16, 30], [19, 30], [10, 15], [13, 15], [21, 15], [29, 10], [32, 10], [25, 2]];
-
-  // Força máxima (soma dos status base) permitida em cada parte da rota
-  const maxBstFor = slot => (STAGE[slot] < 1 ? 330 : STAGE[slot] < 3 ? 420 : 999);
-
-  function wildSpecies(slot) {
-    if (STAGE[slot] === 0) return weighted(ROUTE1);
-    const maxBst = maxBstFor(slot);
-    const pool = WILD_BASES.filter(p => bst(p.id) <= maxBst).map(p => [p.id, p.catch]);
-    return weighted(pool);
-  }
+  // Força máxima (soma dos status base) dos Pokémon de treinadores em cada parte da jornada (insígnias)
+  const maxBstFor = stage => (stage < 1 ? 330 : stage < 3 ? 420 : 999);
 
   // Depois de carregar um jogo salvo, os novos Pokémon não podem repetir uid
   function syncUid(mons) {
@@ -96,6 +82,6 @@
 
   window.MON = {
     rand, randInt, pick, weighted, create, refresh, name, xpNext, evolutionFor, evolvedFor,
-    wildSpecies, rollShiny, bst, maxBstFor, syncUid,
+    rollShiny, bst, maxBstFor, syncUid,
   };
 })();

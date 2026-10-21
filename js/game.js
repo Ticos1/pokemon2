@@ -1,7 +1,7 @@
 // Jogo principal: estado, tela, HUD, batalhas, menus, cenas especiais, telas de início e fim.
 // A caminhada fica em js/world.js e as paradas da rota em js/events.js.
 (function () {
-  const R = window.RULES, M = window.MON, P = window.PROGRESS, J = window.JOURNEY;
+  const R = window.RULES, M = window.MON, P = window.PROGRESS, J = window.JOURNEY, KT = window.KANTO;
   const { DEX, ITEMS, BALLS } = R;
   const { say, choose, el, esc, $ } = UI;
 
@@ -9,8 +9,8 @@
 
   const G = {
     speed: 1, mode: 1, scene: 'title', paused: false, autopilot: false,
-    party: [], pc: [], bag: {}, money: 0, badges: 0, starter: 4,
-    route: [], step: 0, stats: {}, seen: [],
+    party: [], pc: [], bag: {}, money: 0, badges: 0, starter: 4, coins: 0, eggs: [], fossils: [], weather: null, champion: false,
+    route: [], step: 0, stats: {}, seen: [], place: null,
     world: null, battle: null, bg: null, fx: null, fishing: null, timers: [], time: 0,
   };
   window.G = G;
@@ -43,26 +43,32 @@
   const ballCount = () => J.ballCount(G);
 
   // ---------- HUD ----------
-  function eventLabel(kind, i) {
-    const gi = J.indexOfKind(G.route, i, 'gym');
-    const ei = J.indexOfKind(G.route, i, 'elite');
-    return {
-      wild: 'Grama alta', trainer: 'Treinador', item: 'Item', fishing: 'Lago',
-      rocket: 'Equipe Rocket', rival: 'Rival', gift: 'Presente',
-      gym: R.GYMS[gi] ? `Ginásio de ${R.GYMS[gi].leader}` : 'Ginásio',
-      elite: R.ELITE[ei] ? `Elite dos 4: ${R.ELITE[ei].name}` : 'Elite dos 4',
-      champion: 'Campeão',
-    }[kind] || kind;
+  const EVENT_NAMES = {
+    wild: 'Grama alta', trainer: 'Treinador', double: 'Dupla de treinadores', item: 'Item', fishing: 'Pesca',
+    rocket: 'Equipe Rocket', rival: 'Rival', gift: 'Presente', egg: 'Creche', merchant: 'Mercador', magikarp: 'Vendedor de Magikarp',
+    weather: 'Mudança de tempo', city: 'Cidade', center: 'Centro Pokémon', heal: 'Descanso', story: 'História', choice: 'Bifurcação',
+    casino: 'Cassino', safari: 'Zona Safári', fossil: 'Fósseis', lab: 'Laboratório', quiz: 'Quiz', legend: 'Pokémon lendário',
+    marowak: 'Fantasma', boss: 'Giovanni', dojo: 'Dojo de Luta', champion: 'Campeão',
+  };
+  function eventLabel(stop) {
+    if (!stop) return 'Kanto';
+    let ev = EVENT_NAMES[stop.ev] || stop.ev;
+    if (stop.ev === 'gym') ev = `Ginásio de ${R.GYMS[stop.n].leader}`;
+    if (stop.ev === 'elite') ev = `Elite dos 4: ${R.ELITE[stop.n].name}`;
+    if (stop.ev === 'legend') ev = DEX[stop.id].name;
+    return stop.area ? `${ev} — ${KT.placeName(stop)}` : ev;
   }
 
-  // Ícone de cada parada na barra de progresso, com os gráficos do GBA
-  function nodeIcon(ev, i) {
+  // Ícone de cada parada da área na barra de cima, com os gráficos do GBA
+  function nodeIcon(stop, i) {
+    const ev = stop.ev;
+    if (ev === 'gym') return ART.badgeStyle(stop.n, 12);
     if (ev === 'wild') return ART.tileStyle('tall', 12);
     if (ev === 'fishing') return ART.tileStyle('water', 12);
-    if (ev === 'item') return ART.itemStyle(0, 12);
-    if (ev === 'elite') return ART.headStyle(R.ELITE[J.indexOfKind(G.route, i, 'elite')].look);
-    if (ev === 'champion') return ART.headStyle('rival');
-    const look = { trainer: G.seen[i] || 'youngster', rocket: 'rocket', rival: 'rival', gift: 'oldman' }[ev];
+    const item = { item: 0, center: 3, city: 3, heal: 3, merchant: 8, magikarp: 8, casino: 19, safari: 15, fossil: 16, lab: 18, legend: 14, egg: 7 }[ev];
+    if (item !== undefined) return ART.itemStyle(item, 12);
+    if (ev === 'elite') return ART.headStyle(R.ELITE[stop.n].look);
+    const look = { trainer: G.seen[i] || 'youngster', double: G.seen[i] || 'lass', rocket: 'rocket', rival: 'rival', champion: 'rival', gift: 'oldman', boss: 'giovanni', dojo: 'blackbelt', marowak: 'channeler', quiz: 'burglar', story: 'oak' }[ev];
     return look ? ART.headStyle(look) : '';
   }
 
@@ -70,30 +76,53 @@
     const prog = $('#prog');
     if (!prog) return;
     prog.innerHTML = '';
-    let gymN = 0;
-    G.route.forEach((ev, i) => {
+    const stop = G.route[G.step];
+    // paradas da área atual (seguidas)
+    let a = G.step, b = G.step;
+    if (stop) {
+      while (a > 0 && G.route[a - 1].area === stop.area && stop.area) a--;
+      while (b < G.route.length - 1 && G.route[b + 1].area === stop.area && stop.area) b++;
+    }
+    for (let i = a; i <= b && stop; i++) {
+      const st = G.route[i];
       const n = el('div', 'node');
-      if (ev === 'gym') {
-        n.classList.add('gym');
-        n.innerHTML = `<i style="${ART.badgeStyle(gymN, 12)}"></i>`;
-        if (gymN >= G.badges) n.classList.add('dim');
-        gymN++;
-      } else if (ev === 'champion' || ev === 'elite' || i < G.step) {
-        if (ev === 'champion' || ev === 'elite') n.classList.add('champ');
-        n.innerHTML = `<i style="${nodeIcon(ev, i)}"></i>`;
-      } else {
-        n.textContent = '?';
-      }
+      const known = i <= G.step || ['gym', 'city', 'center', 'elite', 'champion'].includes(st.ev);
+      if (known) n.innerHTML = `<i style="${nodeIcon(st, i)}"></i>`;
+      else n.textContent = '?';
       if (i < G.step) n.classList.add('done');
       if (i === G.step) n.classList.add('current');
       prog.appendChild(n);
-    });
-    const total = G.route.length || R.ROUTE.length;
-    $('#step').textContent = `${Math.min(G.step + (G.scene === 'title' ? 0 : 1), total)}/${total}`;
+    }
+    const badges = $('#badges');
+    badges.innerHTML = '';
+    for (let i = 0; i < 8; i++) badges.appendChild(el('i', i < G.badges ? '' : 'dim', '')).setAttribute('style', ART.badgeStyle(i, 10));
+    $('#place').textContent = stop ? KT.placeName(stop) : '';
+    $('#step').textContent = G.route.length ? `${Math.min(G.step + 1, G.route.length)}/${G.route.length}` : '';
     $('#money').textContent = '₽' + G.money;
     $('#balls').textContent = ballCount();
     $('#potions').textContent = count('potion') + count('superpotion') + count('hyperpotion');
     updateParty();
+  }
+
+  // Placa com o nome do lugar ao chegar (como no GBA)
+  function showPlace(name) {
+    G.place = { name, t: 0 };
+  }
+
+  function drawPlace() {
+    const p = G.place;
+    if (!p || G.scene !== 'world') return;
+    if ((p.t += 1 / 60) > 2.6) { G.place = null; return; }
+    const k = p.t < .3 ? p.t / .3 : p.t > 2.2 ? 1 - (p.t - 2.2) / .4 : 1;
+    ctx.save();
+    ctx.font = `8px ${UI.FONT}`;
+    const w = Math.max(120, ctx.measureText(p.name).width + 28);
+    const y = 50 - (1 - k) * 40;
+    ctx.fillStyle = '#383850'; ctx.fillRect(8, y, w, 26);
+    ctx.fillStyle = '#f8f8e8'; ctx.fillRect(10, y + 2, w - 4, 22);
+    ctx.fillStyle = '#a8b8e8'; ctx.fillRect(10, y + 20, w - 4, 2);
+    UI.text(ctx, p.name, 8 + w / 2, y + 16, { size: 8, align: 'center' });
+    ctx.restore();
   }
 
   function updateParty() {
@@ -284,14 +313,15 @@
   }
 
   // ---------- Batalhas ----------
-  async function runBattle({ enemies, kind, theme = 'route', title, look, vs }) {
+  // mode = 2 força batalha em dupla; noCatch = não dá para capturar; weather = clima da rota
+  async function runBattle({ enemies, kind, theme = 'route', title, look, vs, mode, noCatch, weather }) {
     const back = G.scene === 'indoor' ? 'indoor' : 'world';
     if (vs) await vsScreen(look, vs.name, vs.subtitle);
     else await flashTransition();
     const b = new BATTLE.Battle({
-      party: G.party, enemies, mode: G.mode, kind: kind === 'wild' ? 'wild' : 'trainer', title,
+      party: G.party, enemies, mode: mode || G.mode, kind: kind === 'wild' ? 'wild' : 'trainer', title, weather,
       hooks: {
-        canCatch: () => ballCount() > 0,
+        canCatch: () => !noCatch && ballCount() > 0,
         catchPrompt: unit => catchPrompt(unit),
       },
     });
@@ -318,7 +348,7 @@
       label: `${ITEMS[b].name} x${count(b)}`, value: b, icon: ART.itemStyle(ITEMS[b].icon),
     }));
     opts.push({ label: 'Continuar lutando', value: null });
-    const choice = await choose(`${name} está fraco! Lançar uma Poké Bola?`, opts, { auto: J.bestBall(G) });
+    const choice = await choose(`${name} está fraco! Lançar uma Poké Bola?`, opts, { auto: J.bestBall(G, unit.mon) });
     if (choice) { G.bag[choice]--; updateHud(); }
     return choice;
   }
@@ -360,7 +390,7 @@
     if (G.battle === b) b.paused = false;
   }
 
-  const HEAL_ITEMS = ['potion', 'superpotion', 'hyperpotion', 'revive', 'rarecandy'];
+  const HEAL_ITEMS = ['potion', 'superpotion', 'hyperpotion', 'revive', 'rarecandy', ...R.STONES];
 
   // Menu de itens: escolhe item e depois o Pokémon
   function itemMenu({ inBattle } = {}) {
@@ -369,7 +399,7 @@
       const render = () => {
         box.innerHTML = `<h2>MOCHILA</h2>`;
         const list = el('div', 'item-list');
-        const usable = HEAL_ITEMS.filter(k => count(k) > 0 && !(inBattle && k === 'rarecandy'));
+        const usable = HEAL_ITEMS.filter(k => count(k) > 0 && !(inBattle && (k === 'rarecandy' || ITEMS[k].stone)));
         if (!usable.length) list.innerHTML = '<p class="muted">Nenhum item de cura. Compre na Loja!</p>';
         for (const k of usable) {
           const it = ITEMS[k];
@@ -387,7 +417,7 @@
         box.innerHTML = `<h2>${it.name}</h2><p class="muted">${it.desc} Em quem?</p>`;
         const list = el('div', 'mon-list');
         for (const mon of G.party) {
-          const ok = it.revive ? mon.hp <= 0 : it.candy ? mon.lvl < 100 : mon.hp > 0 && mon.hp < mon.maxhp;
+          const ok = it.revive ? mon.hp <= 0 : it.candy ? mon.lvl < 100 : it.stone ? !!J.stoneTarget(mon, k) : mon.hp > 0 && mon.hp < mon.maxhp;
           const row = el('button', 'mon-row' + (ok ? '' : ' disabled'));
           const k2 = mon.hp / mon.maxhp;
           row.innerHTML = `<span class="icon" style="${ART.iconStyle(mon.id)}"></span>
@@ -396,7 +426,7 @@
           if (ok) {
             row.onclick = async () => {
               await useItem(k, mon);
-              if (it.candy) { resolve(); return; } // o Doce Raro fecha a mochila
+              if (it.candy || it.stone) { resolve(); return; } // o Doce Raro e as pedras fecham a mochila
               render();
             };
           }
@@ -426,6 +456,9 @@
         b.sides.p.queue.push(mon);
         for (let i = 0; i < b.slots; i++) if (!b.sides.p.slots[i]) { b.sendOut('p', i); break; }
       }
+    } else if (it.stone) {
+      UI.closeModal();
+      await evolveScene(mon, J.stoneTarget(mon, k));
     } else if (it.candy) {
       const moves = P.levelUp(mon);
       window.SFX.levelUp();
@@ -613,14 +646,14 @@
   }
 
   // ---------- Loja e Centro Pokémon ----------
-  async function shop() {
+  async function shop({ stones } = {}) {
     return new Promise(resolve => {
       const box = UI.modal('shop');
       const render = () => {
         box.innerHTML = `<h2>LOJA POKÉMON</h2><div class="money">Seu dinheiro: <b>₽${G.money}</b></div>`;
         const list = el('div', 'item-list');
         for (const [k, it] of Object.entries(ITEMS)) {
-          if (!it.price || (it.badges || 0) > G.badges) continue;
+          if (!it.price || (it.badges || 0) > G.badges || (it.stone && !stones)) continue;
           const row = el('div', 'shop-row' + (G.money < it.price ? ' poor' : ''));
           row.innerHTML = `<span class="ico" style="${ART.itemStyle(it.icon)}"></span>
             <span class="nm">${it.name}<small>${it.desc}</small></span>
@@ -647,14 +680,6 @@
 
   async function healParty() {
     window.SFX.heal();
-    for (const m of G.party) m.hp = m.maxhp;
-    G.fx = { kind: 'white', t: 0, dur: .8 };
-    updateHud();
-    await wait(.8);
-  }
-
-  async function healParty() {
-    window.SFX.heal();
     J.healAll(G.party);
     G.fx = { kind: 'white', t: 0, dur: .8 };
     updateHud();
@@ -662,7 +687,7 @@
   }
 
   // Loja: no modo gravação as compras são automáticas
-  async function visitShop(prompt, stayLabel) {
+  async function visitShop(prompt, stayLabel, opts = {}) {
     if (G.autopilot) {
       const bought = J.autoShop(G);
       const list = Object.entries(bought).map(([k, n]) => `${n}x ${ITEMS[k].name}`);
@@ -671,7 +696,7 @@
       return;
     }
     const c = await choose(prompt, [{ label: 'Entrar na loja', value: true }, { label: stayLabel, value: false }]);
-    if (c) await shop();
+    if (c) await shop(opts);
   }
 
   // ---------- Telas de início e fim ----------
@@ -680,14 +705,14 @@
       const box = UI.modal('title');
       box.innerHTML = `
         <div class="logo"><span>POKÉMON</span><em>Jornada por Kanto</em></div>
-        <p class="muted">Seu treinador caminha sozinho por Kanto.<br>Um evento surpresa, um ginásio... até as 8 insígnias, a Elite dos 4 e o Campeão.<br>As batalhas acontecem sozinhas, em tempo real!</p>`;
+        <p class="muted">Seu treinador atravessa Kanto inteiro, como no Red/Blue: rotas, Mt. Moon, S.S. Anne, Torre Pokémon, Silph Co., Zona Safári, Estrada Vitória... até as 8 insígnias, a Elite dos 4 e o Campeão.<br>As batalhas acontecem sozinhas, em tempo real!</p>`;
       const start = how => () => { window.AUDIO.unlock(); window.SFX.select(); UI.closeModal(); resolve(how); };
       if (saved) {
         const lead = saved.party[0];
         const cont = el('button', 'btn big', 'CONTINUAR');
         cont.onclick = start('continue');
         box.appendChild(cont);
-        box.appendChild(el('p', 'tiny muted', `Parada ${saved.step + 1}/${saved.route.length} · ${DEX[lead.id].name} Nv${lead.lvl} · ${saved.badges} insígnia${saved.badges === 1 ? '' : 's'}`));
+        box.appendChild(el('p', 'tiny muted', `${KT.placeName(saved.route[saved.step])} · ${DEX[lead.id].name} Nv${lead.lvl} · ${saved.badges} insígnia${saved.badges === 1 ? '' : 's'}`));
       }
       box.appendChild(el('div', 'label', 'MODO DE BATALHA'));
       const modes = el('div', 'row');
@@ -737,12 +762,12 @@
   function endScreen(won, reachedSlot) {
     return new Promise(resolve => {
       const box = UI.modal(won ? 'end win' : 'end');
-      const kind = G.route[reachedSlot];
+      const stop = G.route[reachedSlot];
       if (won) {
-        box.innerHTML = `<h1>CAMPEÃO!</h1><p>Você venceu a Liga Pokémon de Kanto!</p><div class="label">HALL DA FAMA</div>`;
+        box.innerHTML = `<h1>CAMPEÃO!</h1><p>Você venceu a Liga Pokémon de Kanto!</p>${G.stats.mewtwo ? '<p>E ainda capturou o Mewtwo!</p>' : ''}<div class="label">HALL DA FAMA</div>`;
       } else {
         box.innerHTML = `<h1>FIM DE JOGO</h1><p>Seu time desmaiou...</p>
-          <p>Você chegou até: <b>${eventLabel(kind, reachedSlot)}</b> (${reachedSlot + 1}/${G.route.length})</p>`;
+          <p>Você chegou até: <b>${esc(eventLabel(stop))}</b> (${reachedSlot + 1}/${G.route.length})</p>`;
       }
       const team = el('div', 'hall');
       for (const m of G.party) {
@@ -794,9 +819,9 @@
       M.syncUid([...G.party, ...G.pc]);
       playedBefore = saved.elapsed || 0;
       updateHud();
-      await say(`Bem-vindo de volta! ${eventLabel(G.route[G.step], G.step)} é a próxima parada.`);
+      await say(`Bem-vindo de volta! Próxima parada: ${eventLabel(G.route[G.step])}.`);
     } else {
-      Object.assign(G, { party: [], pc: [], bag: {}, money: 0, badges: 0, stats: {}, step: 0, route: [], seen: [] });
+      Object.assign(G, { party: [], pc: [], bag: {}, money: 0, badges: 0, stats: {}, step: 0, route: [], seen: [], coins: 0, eggs: [], fossils: [], weather: null, champion: false });
       G.world.follower = false;
       updateHud();
       const starter = await starterScreen();
@@ -804,26 +829,29 @@
       G.world.follower = true;
       playedBefore = 0;
       updateHud();
-      await say(`Você escolheu ${DEX[G.starter].name}! Você recebeu 5 Poké Bolas e 2 Poções.`);
+      await say(`Professor Carvalho: Você escolheu ${DEX[G.starter].name}! Tome também 5 Poké Bolas e 2 Poções.`);
       await say(`Blue: Então eu fico com o ${DEX[R.RIVAL_STARTER[G.starter]].name}! Te vejo na Liga!`);
       if (!G.autopilot) await say('Dica: toque num Pokémon da barra de baixo (ou em TIME, na batalha) para ver a vida e os golpes dele.');
     }
     G.startedAt = performance.now();
+    EVENTS.reset();
+    // a rota muda durante a partida (bifurcações e Centro Pokémon depois de perder para um lendário)
     for (let i = G.step; i < G.route.length; i++) {
       G.step = i;
       SAVE.write(G, elapsed());
       updateHud();
-      const ok = await EVENTS.run(G.route[i], i);
+      const ok = await EVENTS.run(i);
       if (!ok) {
         SAVE.clear();
         window.SFX.gameOver();
         await say('Seu time não pode mais lutar...');
-        await endScreen(false, i);
+        // depois de virar Campeão, perder na Caverna Desconhecida não tira o título
+        await endScreen(G.champion, i);
         return;
       }
     }
     SAVE.clear();
-    G.step = G.route.length;
+    G.step = G.route.length - 1;
     updateHud();
     window.SFX.victory();
     await endScreen(true, G.route.length - 1);
@@ -845,7 +873,7 @@
       // cenário do título: caminhada infinita
       G.scene = 'world';
       G.world = WORLD.newWorld(); G.world.walking = true; G.world.target = 1e9; G.world.follower = false;
-      G.party = []; G.route = [];
+      G.party = []; G.route = []; G.weather = null;
       $('#hud').classList.add('hidden');
       $('#party').classList.add('hidden');
       const saved = J.upgradeSave(SAVE.read());
@@ -874,13 +902,18 @@
   // 1, 2 e 4 mudam a velocidade (no modo gravação os botões ficam escondidos)
   function setupInput() {
     const press = down => { if (G.fishing) G.fishing.press(down); };
-    canvas.addEventListener('pointerdown', e => { if (G.fishing) { e.preventDefault(); press(true); } });
+    // G.onPress: cenas que esperam um toque (o caça-níquel do cassino)
+    canvas.addEventListener('pointerdown', e => {
+      if (G.fishing) { e.preventDefault(); press(true); }
+      if (G.onPress && !G.paused) { e.preventDefault(); G.onPress(); }
+    });
     window.addEventListener('pointerup', () => press(false));
     window.addEventListener('pointercancel', () => press(false));
     window.addEventListener('keydown', e => {
       if (e.code === 'Escape' && G.autopilot) setRecording(false);
       if (['Digit1', 'Digit2', 'Digit4'].includes(e.code) && !G.fishing) setSpeed(+e.code.slice(5));
       if (G.fishing && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyZ')) { e.preventDefault(); if (!e.repeat) press(true); }
+      if (G.onPress && !G.paused && !e.repeat && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyZ')) { e.preventDefault(); G.onPress(); }
     });
     window.addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyZ') press(false); });
   }
@@ -919,16 +952,24 @@
     else if (G.scene === 'vs' && G.vs) drawVs();
     else if (G.scene === 'evolve' && G.evo) drawEvolve();
     else if (G.scene === 'indoor' && G.indoor) drawIndoor();
+    else if (window.SCENES && SCENES.draw[G.scene]) SCENES.draw[G.scene](ctx);
     else if (G.world) {
       WORLD.draw(ctx, G.world, G.party);
       if (G.fishing) { const s = WORLD.fishingSpots(G.world, G.fishing.lake); G.fishing.draw(ctx, s.hand, s.bob); }
     }
+    drawPlace();
     drawBadgeFx();
     drawFx();
   }
 
+  async function hallOfFame() {
+    window.SFX.victory();
+    G.fx = { kind: 'white', t: 0, dur: 1.2 };
+    await wait(1.2);
+  }
+
   window.GAME = {
-    G, wait, say, choose, setSpeed, count, addItem, ballCount, updateHud, walkTo, runBattle, afterBattle, addCaught,
+    G, ctx, W, H, wait, say, choose, setSpeed, showPlace, hallOfFame, shop, eventLabel, count, addItem, ballCount, updateHud, walkTo, runBattle, afterBattle, addCaught,
     flashTransition, fade, vsScreen, badgeScene, evolveScene, healParty, visitShop, goInside, goOutside,
   };
 

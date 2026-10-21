@@ -54,6 +54,9 @@
       this.caught = null;
       this.banner = null;
       this.headless = !!opts.headless;
+      // clima (js/journey.js WEATHER): chuva e sol mudam o dano de água e fogo; areia e granizo machucam
+      this.weather = opts.weather ? window.JOURNEY.WEATHER[opts.weather] : null;
+      this.weatherKind = opts.weather || null;
       this.sides = {
         p: { queue: opts.party.filter(m => m.hp > 0), slots: [] },
         e: { queue: opts.enemies.slice(), slots: [] },
@@ -200,6 +203,16 @@
           const d = Math.max(1, Math.floor(u.mon.maxhp / (st.poison > 0 ? 14 : 16)));
           this.applyDamage(u, d, null);
           this.text(u.x, u.y - 44, '-' + d, st.poison > 0 ? '#c060e0' : '#f08030');
+        }
+      }
+      // areia e granizo: dano a cada 2 s em quem não é do tipo que aguenta
+      if (this.weather && this.weather.chip && !DEX[u.mon.id].types.some(t => this.weather.chip.includes(t))) {
+        u.wchip = (u.wchip || 0) + dt;
+        if (u.wchip >= 2) {
+          u.wchip = 0;
+          const d = Math.max(1, Math.floor(u.mon.maxhp / 16));
+          this.applyDamage(u, d, null);
+          this.text(u.x, u.y - 44, '-' + d, '#e0c890');
         }
       }
       if (u.state === 'faint') return;
@@ -480,7 +493,9 @@
       const crit = Math.random() < .0625 + (m.crit || 0) ? 1.5 : 1;
       const base = ((2 * a.lvl / 5 + 2) * m.pow * A / D) / 50 + 2;
       const bonus = att.side === 'p' ? PLAYER_POWER : PLAYER_GUARD;
-      let dmg = Math.floor(base * this.stab(att, m) * eff * crit * bonus * rand(.85, 1));
+      const w = this.weather;
+      const wmul = w && w.boost ? (m.type === w.boost ? 1.5 : m.type === w.weak ? .5 : 1) : 1;
+      let dmg = Math.floor(base * this.stab(att, m) * eff * crit * bonus * wmul * rand(.85, 1));
       if (eff > 0) dmg = Math.max(1, dmg);
 
       const tx = def.x, ty = def.y - 40;
@@ -672,6 +687,7 @@
       }
       ctx.globalAlpha = 1;
       ctx.restore();
+      if (this.weatherKind) ART.drawWeather(ctx, this.weatherKind, this.t);
       this.drawHud(ctx);
       if (this.banner) {
         const msg = this.banner.msg;

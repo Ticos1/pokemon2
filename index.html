@@ -20,13 +20,15 @@
 
     <div id="hud" class="hidden">
       <div class="hud-row">
-        <span id="step" class="step">0/15</span>
+        <span id="step" class="step">0/0</span>
+        <span id="place" class="place"></span>
         <div id="prog"></div>
       </div>
       <div class="hud-row">
         <span class="stat"><span class="ico" style="background-position:0 0"></span><b id="balls">0</b></span>
         <span class="stat"><span class="ico" style="background-position:-54px 0"></span><b id="potions">0</b></span>
         <span class="stat money" id="money">₽0</span>
+        <span id="badges" class="badges-hud"></span>
         <span class="hud-buttons">
           <button id="btn-speed" title="Velocidade">1x</button>
           <button id="btn-auto" title="Avançar textos sozinho">AUTO</button>
@@ -49,6 +51,7 @@
   <script src="js/moves.js"></script>
   <script src="js/rules.js"></script>
   <script src="js/mon.js"></script>
+  <script src="js/kanto.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/art.js"></script>
   <script src="js/ui.js"></script>
@@ -60,6 +63,7 @@
   <script src="js/world.js"></script>
   <script src="js/game.js"></script>
   <script src="js/events.js"></script>
+  <script src="js/scenes.js"></script>
   <script>
     // no GitHub Pages (https) o jogo funciona offline e pode ser instalado no celular
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

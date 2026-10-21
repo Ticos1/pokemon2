@@ -175,12 +175,62 @@
     return `background-image:url(${SHEET_FILES.badges});background-size:${128 * size / 16}px ${size}px;background-position:-${i * size}px 0`;
   }
 
+  // Clima por cima da cena (tela inteira 360x640): chuva, sol, areia ou granizo
+  function drawWeather(ctx, kind, t) {
+    ctx.save();
+    if (kind === 'sun') {
+      ctx.fillStyle = 'rgba(255,200,80,.16)';
+      ctx.fillRect(0, 0, 360, 640);
+      const g = ctx.createRadialGradient(330, 30, 10, 330, 30, 220);
+      g.addColorStop(0, 'rgba(255,250,200,.55)'); g.addColorStop(1, 'rgba(255,250,200,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 360, 640);
+    } else if (kind === 'rain') {
+      ctx.fillStyle = 'rgba(40,60,120,.18)'; ctx.fillRect(0, 0, 360, 640);
+      ctx.strokeStyle = 'rgba(190,210,255,.7)'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < 70; i++) {
+        const x = (i * 53.3 + t * 140) % 400 - 20, y = (i * 97.1 + t * 620) % 680 - 20;
+        ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 16);
+      }
+      ctx.stroke();
+    } else if (kind === 'sand') {
+      ctx.fillStyle = 'rgba(200,160,90,.22)'; ctx.fillRect(0, 0, 360, 640);
+      ctx.fillStyle = 'rgba(230,200,140,.8)';
+      for (let i = 0; i < 90; i++) {
+        const x = (i * 71.7 + t * 420) % 380 - 10, y = (i * 37.3 + Math.sin(t * 3 + i) * 20 + t * 60) % 660 - 10;
+        ctx.fillRect(x, y, 3, 2);
+      }
+    } else if (kind === 'hail') {
+      ctx.fillStyle = 'rgba(180,210,240,.15)'; ctx.fillRect(0, 0, 360, 640);
+      ctx.fillStyle = 'rgba(240,250,255,.9)';
+      for (let i = 0; i < 50; i++) {
+        const x = (i * 61.9 + t * 60) % 380 - 10, y = (i * 83.7 + t * 380) % 660 - 10;
+        ctx.fillRect(x, y, 4, 4);
+      }
+    }
+    ctx.restore();
+  }
+
+  // Mapas dos andares (carregados só quando a área chega perto)
+  const MAPS = {};
+  function loadMap(key) {
+    if (!key || MAPS[key] || !window.GBA.maps[key]) return;
+    const img = new Image();
+    MAPS[key] = { img, ok: false };
+    img.onload = () => { MAPS[key].ok = true; };
+    img.src = `assets/gba/maps/${key}.png`;
+  }
+  function mapImage(key) {
+    const m = MAPS[key];
+    return m && m.ok ? m.img : null;
+  }
+
   function arena(theme) {
     return SHEETS['arena_' + theme] || SHEETS.arena_route;
   }
 
   window.ART = {
     load, SHEETS, MON_SIZE, MON_FEET, canvas, drawMon, monCanvas, iconStyle, drawIcon, itemStyle, drawItem,
-    drawChar, drawWalker, drawPortrait, drawTile, tileStyle, headStyle, drawBuilding, buildingSize, drawBadge, badgeStyle, arena,
+    drawChar, drawWalker, drawPortrait, drawTile, tileStyle, headStyle, drawBuilding, buildingSize, drawBadge, badgeStyle, arena, drawWeather, loadMap, mapImage,
   };
 })();
