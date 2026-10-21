@@ -8,7 +8,7 @@
   const XP_MULT = { wild: 1, trainer: 1.5, rocket: 1.8, rival: 2, gym: 2, elite: 2, champion: 2 };
 
   function xpFor(enemy, mult) {
-    return Math.round((enemy.lvl * 12 + 50) * mult * (DEX[enemy.id].exp / 140 + .5));
+    return Math.round((enemy.lvl * 12 + 50) * mult * (DEX[enemy.id].exp / 140 + .5) * .9);
   }
 
   // Dá experiência: participantes ganham 100%, quem ficou no banco ganha BENCH_XP.
@@ -33,7 +33,8 @@
       if (mon.lvl > startLvl) {
         M.refresh(mon);
         log.push({ kind: 'level', mon, lvl: mon.lvl });
-        for (const mv of R.newMovesAt(mon, startLvl)) log.push({ kind: 'move', mon, move: mv });
+        const forgot = R.forgottenAt(mon, startLvl);
+        R.newMovesAt(mon, startLvl).forEach((mv, i) => log.push({ kind: 'move', mon, move: mv, forgot: forgot[i] }));
         const to = M.evolutionFor(mon);
         if (to) evolve.push({ mon, to });
       }
@@ -41,12 +42,14 @@
     return { total, log, evolve };
   }
 
+  // Doce Raro: sobe 1 nível. Retorna os golpes novos ({ move, forgot })
   function levelUp(mon) {
     const start = mon.lvl;
     mon.lvl++;
     mon.xp = 0;
     M.refresh(mon);
-    return R.newMovesAt(mon, start);
+    const forgot = R.forgottenAt(mon, start);
+    return R.newMovesAt(mon, start).map((move, i) => ({ move, forgot: forgot[i] }));
   }
 
   function evolve(mon, to) {
@@ -71,12 +74,13 @@
 
   function teamSize(slot, mode, extra = 0) {
     const min = mode === 2 ? 2 : 1;
-    const max = slot < 4 ? 2 : slot < 10 ? 3 : 4;
+    const stage = R.STAGE[slot];
+    const max = stage < 1 ? 1 : stage < 2 ? 2 : stage < 5 ? 3 : 4;
     return Math.min(6, Math.max(min, M.randInt(min, max) + extra));
   }
 
   function trainer(slot, mode) {
-    const cls = M.pick(R.TRAINER_CLASSES.filter(c => !c.minSlot || slot >= c.minSlot));
+    const cls = M.pick(R.TRAINER_CLASSES.filter(c => !c.minStage || R.STAGE[slot] >= c.minStage));
     const lvl = R.SLOT_LEVEL[slot];
     const team = teamFromPool(cls.pool, teamSize(slot, mode), lvl - 1, slot);
     return { cls, team, money: cls.money * Math.max(...team.map(m => m.lvl)) };
@@ -91,9 +95,10 @@
   function rival(starter, slot, mode) {
     const lvl = R.SLOT_LEVEL[slot] + 1;
     const team = [makeMon(16, lvl - 2)];
-    if (slot >= 4) team.push(makeMon(M.pick([63, 133, 66, 58]), lvl - 1));
-    if (slot >= 8) team.push(makeMon(M.pick([111, 102, 129, 92]), lvl - 1));
-    if (slot >= 12) team.push(makeMon(M.pick([59, 130, 103, 65]), lvl));
+    const stage = R.STAGE[slot];
+    if (stage >= 2) team.push(makeMon(M.pick([63, 133, 66, 58]), lvl - 1));
+    if (stage >= 4) team.push(makeMon(M.pick([111, 102, 129, 92]), lvl - 1));
+    if (stage >= 6) team.push(makeMon(M.pick([59, 130, 103, 65]), lvl));
     if (mode === 2 && team.length < 2) team.push(makeMon(19, lvl - 2));
     team.push(makeMon(R.RIVAL_STARTER[starter], lvl + 1, { minIv: 15 }));
     return { team, money: 60 * (lvl + 1) };
@@ -117,8 +122,8 @@
   function wild(slot, opts = {}) {
     let id, lvl = R.SLOT_LEVEL[slot] + M.randInt(-1, 1) + (opts.bonus || 0);
     if (opts.fish) id = M.weighted(R.FISH_POOL);
-    else if (slot >= 8 && Math.random() < .025) { id = M.pick([144, 145, 146]); lvl += 4; }
-    else if (slot >= 12 && Math.random() < .004) { id = M.pick([150, 151]); lvl += 6; }
+    else if (R.STAGE[slot] >= 4 && Math.random() < .025) { id = M.pick([144, 145, 146]); lvl += 4; }
+    else if (R.STAGE[slot] >= 6 && Math.random() < .004) { id = M.pick([150, 151]); lvl += 6; }
     else id = M.wildSpecies(slot);
     const mon = makeMon(id, Math.max(2, lvl), { shiny: M.rollShiny(opts.shinyMult || 1) });
     return mon;
@@ -130,21 +135,29 @@
     ['rocket', 9], ['rival', 8], ['gift', 6],
   ];
 
+  // Eventos que podem repetir em seguida (os outros não aparecem duas vezes seguidas)
+  const COMMON = new Set(['wild', 'trainer']);
+
   function buildRoute() {
     const used = {};
+    let prev = null;
     return R.ROUTE.map((slot, i) => {
-      if (slot !== 'R') return slot;
-      if (i === 0) return 'wild';
-      for (let tries = 0; tries < 20; tries++) {
+      if (slot !== 'R') { prev = slot; return slot; }
+      if (i === 0) { prev = 'wild'; return 'wild'; }
+      let pick = 'trainer';
+      for (let tries = 0; tries < 30; tries++) {
         const ev = M.weighted(EVENT_WEIGHTS);
-        if (ev === 'rocket' && i < 2) continue;
-        if (ev === 'rival' && (used.rival >= 3 || i < 2)) continue;
-        if (ev === 'gift' && used.gift) continue;
-        if (ev === 'item' && used.item >= 2) continue;
-        used[ev] = (used[ev] || 0) + 1;
-        return ev;
+        if (ev === prev && !COMMON.has(ev)) continue;
+        if ((ev === 'rocket' || ev === 'rival') && R.STAGE[i] < 1) continue;
+        if (ev === 'rival' && used.rival >= 3) continue;
+        if (ev === 'gift' && used.gift >= 2) continue;
+        if (ev === 'item' && used.item >= 3) continue;
+        pick = ev;
+        break;
       }
-      return 'trainer';
+      used[pick] = (used[pick] || 0) + 1;
+      prev = pick;
+      return pick;
     });
   }
 

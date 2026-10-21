@@ -140,7 +140,7 @@
   }
 
   // Minijogo de pesca: quanto mais difícil de capturar a espécie, mais o peixe foge
-  const FISH_MOTION = { 129: 'mixed', 130: 'dart', 118: 'smooth', 119: 'smooth', 60: 'mixed', 61: 'mixed', 54: 'floater', 55: 'floater', 72: 'dart', 73: 'dart', 98: 'sinker', 99: 'sinker', 116: 'smooth', 117: 'smooth', 90: 'sinker', 91: 'sinker', 120: 'mixed', 121: 'dart', 147: 'dart', 148: 'dart', 131: 'floater' };
+  const FISH_MOTION = { 129: 'mixed', 130: 'dart', 118: 'smooth', 119: 'smooth', 60: 'mixed', 61: 'mixed', 54: 'floater', 55: 'floater', 72: 'dart', 73: 'dart', 98: 'sinker', 99: 'sinker', 116: 'smooth', 117: 'smooth', 90: 'sinker', 91: 'sinker', 79: 'floater', 86: 'smooth', 120: 'mixed', 121: 'dart', 147: 'dart', 148: 'dart', 131: 'floater' };
   const TREASURE_CHANCE = .2;
 
   function fishing(st, mon) {
@@ -153,9 +153,24 @@
     };
   }
 
+  // Jogo salvo da versão antiga (um evento antes de cada ginásio, 22 paradas): ganha o segundo evento
+  // antes de cada ginásio e continua da mesma parada
+  const OLD_ROUTE = 22;
+  function upgradeSave(data) {
+    if (!data || data.route.length === R.ROUTE.length) return data;
+    if (data.route.length !== OLD_ROUTE) return null;
+    const at = i => (i < 16 ? Math.floor(i / 2) * 3 + (i % 2 ? 2 : 0) : i + 8);
+    const route = P.buildRoute(), seen = [];
+    data.route.forEach((ev, i) => {
+      route[at(i)] = ev;
+      if (data.seen && data.seen[i]) seen[at(i)] = data.seen[i];
+    });
+    return { ...data, route, seen, step: at(data.step) };
+  }
+
   window.JOURNEY = {
     START_BAG, START_MONEY, FOUND_ITEMS, HEAL_ORDER,
     newState, count, addItem, ballCount, bestBall, alive, hasCenter, indexOfKind, healAll, rest,
-    encounter, victory, addCaught, gift, foundItem, rocketDrop, autoShop, fishing,
+    encounter, victory, addCaught, gift, foundItem, rocketDrop, autoShop, fishing, upgradeSave,
   };
 })();

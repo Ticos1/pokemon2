@@ -194,6 +194,7 @@
   // Evolução
   async function evolveScene(mon, to) {
     const from = mon.id;
+    const before = R.movesFor(mon);
     const prevScene = G.scene;
     G.scene = 'evolve';
     G.evo = { from, to, shiny: mon.shiny, t: 0, done: false };
@@ -206,6 +207,9 @@
     window.SFX.levelUp();
     G.stats.evolved = (G.stats.evolved || 0) + 1;
     await say(`Parabéns! Seu ${DEX[from].name} evoluiu para ${DEX[to].name}!`);
+    const now = R.movesFor(mon);
+    const gone = before.filter(m => !now.includes(m));
+    for (const [i, mv] of now.filter(m => !before.includes(m)).entries()) await sayNewMove(mon, { move: mv, forgot: gone[i] });
     G.evo = null;
     G.scene = prevScene;
     updateHud();
@@ -327,6 +331,9 @@
     const bag = el('button', 'bbtn', 'MOCHILA');
     bag.onclick = () => openBattleBag();
     box.appendChild(bag);
+    const team = el('button', 'bbtn team', 'TIME');
+    team.onclick = () => openTeam();
+    box.appendChild(team);
     if (wild) {
       const run = el('button', 'bbtn', 'FUGIR');
       run.onclick = () => {
@@ -424,7 +431,7 @@
       window.SFX.levelUp();
       UI.closeModal();
       await say(`${DEX[mon.id].name} subiu para o Nv. ${mon.lvl}!`);
-      for (const mv of moves) await say(`${DEX[mon.id].name} aprendeu ${mv.name}!`);
+      for (const mv of moves) await sayNewMove(mon, mv);
       const to = M.evolutionFor(mon);
       if (to) await evolveScene(mon, to);
     }
@@ -432,10 +439,40 @@
   }
 
   // ---------- Painel do Pokémon ----------
-  function openMonPanel(mon) {
-    if (G.scene !== 'world' || G.busyModal || G.fishing) return;
+  // Abre na caminhada, dentro do ginásio e no meio da batalha (o jogo pausa enquanto está aberto)
+  function canOpenPanel() {
+    if (G.busyModal || G.fishing || G.paused) return false;
+    if (G.scene === 'battle') return !!G.battle && G.battle.phase === 'fight' && !G.battle.paused;
+    return G.scene === 'world' || G.scene === 'indoor';
+  }
+
+  function pausePanel() {
     G.busyModal = true;
     G.paused = true;
+    const b = G.battle;
+    if (b) b.paused = true;
+    return () => {
+      UI.closeModal();
+      G.paused = false;
+      G.busyModal = false;
+      if (b && G.battle === b) b.paused = false;
+    };
+  }
+
+  const KIND_LABEL = { dash: 'corpo a corpo', proj: 'à distância', beam: 'raio', strike: 'na área do alvo', nova: 'ao redor', splash: '-' };
+
+  function moveRow(m) {
+    const color = m.type ? R.TYPE_INFO[m.type].color : '#888';
+    return el('div', 'move', `<span class="type" style="background:${color}">${m.type ? R.TYPE_INFO[m.type].pt : '-'}</span>
+      <b>${m.name}</b><small>${m.total ? 'Poder ' + m.total : ''}</small><em>${KIND_LABEL[m.kind] || ''}</em>`);
+  }
+
+  function openMonPanel(mon, resume) {
+    if (!resume) {
+      if (!canOpenPanel()) return;
+      resume = pausePanel();
+    }
+    const inBattle = G.scene === 'battle';
     const box = UI.modal('monpanel');
     const render = () => {
       const sp = DEX[mon.id];
@@ -446,42 +483,78 @@
       const info = el('div', 'mon-info', `
         <h2>${sp.name}${mon.shiny ? ' <span class="shiny">✦</span>' : ''}</h2>
         <div>Nv ${mon.lvl} · ${sp.types.map(UI.typeTag).join(' ')}</div>
-        <div class="hpline"><span>PS ${mon.hp}/${mon.maxhp}</span><span class="hpb"><i style="width:${Math.ceil(k * 100)}%"></i></span></div>
-        <div class="muted">XP ${mon.xp}/${M.xpNext(mon.lvl)}</div>`);
+        <div class="hpline"><span>PS ${Math.max(0, Math.ceil(mon.hp))}/${mon.maxhp}</span><span class="hpb"><i style="width:${Math.ceil(k * 100)}%;background:${k > .5 ? '#58d070' : k > .2 ? '#f8c830' : '#f05050'}"></i></span></div>
+        <div class="muted">${mon.hp <= 0 ? 'Desmaiado' : `XP ${mon.xp}/${M.xpNext(mon.lvl)}`}</div>`);
       head.appendChild(info);
       box.appendChild(head);
       box.appendChild(el('div', 'stats', `
         <span>ATQ ${mon.atk}</span><span>DEF ${mon.def}</span><span>VEL ${mon.spe}</span>
         <span>AT.E ${mon.spa}</span><span>DF.E ${mon.spd}</span>`));
+      box.appendChild(el('div', 'label', 'GOLPES'));
       const moves = el('div', 'moves');
-      for (const m of R.movesFor(mon)) {
-        moves.appendChild(el('div', 'move', `<span class="type" style="background:${m.type ? R.TYPE_INFO[m.type].color : '#888'}">${m.type ? R.TYPE_INFO[m.type].pt : '-'}</span> ${m.name} <small>${m.pow || '-'}</small>`));
-      }
+      for (const m of R.movesFor(mon)) moves.appendChild(moveRow(m));
       box.appendChild(moves);
+      const next = R.nextMove(mon);
+      const evo = M.evolutionFor({ ...mon, lvl: 100 });
+      const evoLvl = evo && DEX[mon.id].evo.find(e => e.to === evo).level;
+      box.appendChild(el('div', 'next muted', [
+        next ? `Próximo golpe: <b>${next.move.name}</b> no Nv ${next.lvl}` : 'Não aprende mais golpes subindo de nível.',
+        evoLvl && evoLvl > mon.lvl ? `Evolui no Nv ${evoLvl}` : '',
+      ].filter(Boolean).join('<br>')));
       const actions = el('div', 'actions');
       const idx = G.party.indexOf(mon);
-      if (idx > 0) {
+      if (idx > 0 && !inBattle) {
         const lead = el('button', 'btn', 'COLOCAR NA FRENTE');
         lead.onclick = () => { G.party.splice(idx, 1); G.party.unshift(mon); window.SFX.select(); updateHud(); render(); };
         actions.appendChild(lead);
       }
       const items = el('button', 'btn', 'USAR ITEM');
-      items.onclick = async () => { await itemMenu(); G.busyModal = false; openMonPanel(mon); };
+      items.onclick = async () => { await itemMenu({ inBattle }); openMonPanel(mon, resume); };
       actions.appendChild(items);
-      if (G.pc.length) {
+      if (G.pc.length && !inBattle) {
         const swap = el('button', 'btn', `TROCAR (PC: ${G.pc.length})`);
-        swap.onclick = () => pcSwap(mon, box, render);
+        swap.onclick = () => pcSwap(mon, box, render, resume);
         actions.appendChild(swap);
       }
+      if (inBattle) {
+        const team = el('button', 'btn', 'VOLTAR');
+        team.onclick = () => openTeam(resume);
+        actions.appendChild(team);
+      }
       const close = el('button', 'btn', 'FECHAR');
-      close.onclick = () => { UI.closeModal(); G.paused = false; G.busyModal = false; };
+      close.onclick = resume;
       actions.appendChild(close);
       box.appendChild(actions);
     };
     render();
   }
 
-  function pcSwap(mon, box, back) {
+  // Lista do time (botão TIME da batalha): vida e golpes de cada um
+  function openTeam(resume) {
+    if (!resume) {
+      if (!canOpenPanel()) return;
+      resume = pausePanel();
+    }
+    const box = UI.modal('team');
+    box.innerHTML = '<h2>SEU TIME</h2>';
+    const list = el('div', 'mon-list');
+    for (const mon of G.party) {
+      const k = mon.hp / mon.maxhp;
+      const row = el('button', 'mon-row' + (mon.hp <= 0 ? ' fainted' : ''));
+      row.innerHTML = `<span class="icon" style="${ART.iconStyle(mon.id)}"></span>
+        <span class="nm">${DEX[mon.id].name}${mon.shiny ? ' ✦' : ''}<small>Nv${mon.lvl} · ${Math.max(0, Math.ceil(mon.hp))}/${mon.maxhp} PS</small>
+        <small class="mv">${R.movesFor(mon).map(m => m.name).join(' · ')}</small></span>
+        <span class="hpb"><i style="width:${Math.ceil(k * 100)}%;background:${k > .5 ? '#58d070' : k > .2 ? '#f8c830' : '#f05050'}"></i></span>`;
+      row.onclick = () => { window.SFX.select(); openMonPanel(mon, resume); };
+      list.appendChild(row);
+    }
+    box.appendChild(list);
+    const close = el('button', 'btn', 'FECHAR');
+    close.onclick = resume;
+    box.appendChild(close);
+  }
+
+  function pcSwap(mon, box, back, resume) {
     box.innerHTML = `<h2>PC DE BILL</h2><p class="muted">Trocar ${DEX[mon.id].name} por:</p>`;
     const list = el('div', 'mon-list');
     for (const other of G.pc) {
@@ -493,7 +566,7 @@
         G.party[i] = other; G.pc[j] = mon;
         window.SFX.select();
         updateHud();
-        UI.closeModal(); G.paused = false; G.busyModal = false;
+        resume();
       };
       list.appendChild(row);
     }
@@ -501,6 +574,13 @@
     const b = el('button', 'btn', 'VOLTAR');
     b.onclick = back;
     box.appendChild(b);
+  }
+
+  // Golpe novo: com 4 golpes, o Pokémon esquece o mais fraco para aprender o novo
+  async function sayNewMove(mon, { move, forgot }) {
+    const name = DEX[mon.id].name;
+    if (forgot) await say(`1, 2 e... Puf! ${name} esqueceu ${forgot.name} e aprendeu ${move.name}!`);
+    else await say(`${name} aprendeu ${move.name}!`);
   }
 
   // ---------- Pós-batalha ----------
@@ -512,7 +592,7 @@
     if (xp.total) await say(`Seu time ganhou ${xp.total} pontos de experiência!`);
     for (const l of xp.log) {
       if (l.kind === 'level') { window.SFX.levelUp(); await say(`${DEX[l.mon.id].name} subiu para o Nv. ${l.lvl}!`); }
-      else await say(`${DEX[l.mon.id].name} aprendeu ${l.move.name}!`);
+      else await sayNewMove(l.mon, l);
     }
     if (money) {
       window.SFX.buy();
@@ -726,6 +806,7 @@
       updateHud();
       await say(`Você escolheu ${DEX[G.starter].name}! Você recebeu 5 Poké Bolas e 2 Poções.`);
       await say(`Blue: Então eu fico com o ${DEX[R.RIVAL_STARTER[G.starter]].name}! Te vejo na Liga!`);
+      if (!G.autopilot) await say('Dica: toque num Pokémon da barra de baixo (ou em TIME, na batalha) para ver a vida e os golpes dele.');
     }
     G.startedAt = performance.now();
     for (let i = G.step; i < G.route.length; i++) {
@@ -767,7 +848,7 @@
       G.party = []; G.route = [];
       $('#hud').classList.add('hidden');
       $('#party').classList.add('hidden');
-      const saved = SAVE.read();
+      const saved = J.upgradeSave(SAVE.read());
       const how = await titleScreen(saved);
       $('#hud').classList.remove('hidden');
       $('#party').classList.remove('hidden');

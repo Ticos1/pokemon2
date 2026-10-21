@@ -35,7 +35,7 @@ test('gráficos citados pelo mapa existem em assets/gba.js', () => {
   for (const e of R.ELITE) assert.ok(e.look in window.GBA.people && e.arena in window.GBA.arenas.reduce((o, a) => ({ ...o, [a]: 1 }), {}), e.name);
 });
 
-test('rota tem 22 paradas, 8 ginásios, Elite dos 4 e Campeão', () => {
+test('rota tem 30 paradas (2 eventos antes de cada ginásio), 8 ginásios, Elite dos 4 e Campeão', () => {
   for (let i = 0; i < 50; i++) {
     const st = J.newState(M.pick([1, 4, 7]), 1);
     assert.strictEqual(st.route.length, R.SLOT_LEVEL.length);
@@ -100,4 +100,39 @@ test('jogo salvo volta igual', () => {
   assert.ok(M.create(1, 5).uid > Math.max(...back.party.map(m => m.uid)));
   window.SAVE.clear();
   assert.strictEqual(window.SAVE.read(), null);
+});
+
+test('jogo salvo da versão de 22 paradas continua na mesma parada', () => {
+  const old = ['wild', 'gym', 'trainer', 'gym', 'item', 'gym', 'rival', 'gym', 'wild', 'gym', 'gift', 'gym', 'rocket', 'gym', 'fishing', 'gym', 'trainer', 'elite', 'elite', 'elite', 'elite', 'champion'];
+  for (const [step, ev] of [[0, 'wild'], [3, 'gym'], [6, 'rival'], [16, 'trainer'], [19, 'elite'], [21, 'champion']]) {
+    const up = J.upgradeSave({ v: 1, route: old.slice(), step, seen: [], party: [M.create(1, 5)] });
+    assert.strictEqual(up.route.length, R.ROUTE.length);
+    assert.strictEqual(up.route[up.step], ev);
+    assert.strictEqual(up.route.filter(x => x === 'gym').length, 8);
+    R.ROUTE.forEach((x, i) => { if (x !== 'R') assert.strictEqual(up.route[i], x); });
+  }
+});
+
+test('golpes de verdade: no máximo 4, todos válidos, e cada Pokémon tem pelo menos um', () => {
+  for (const p of window.POKEDEX) {
+    for (const lvl of [2, 5, 15, 30, 50, 70]) {
+      const mv = R.movesFor({ id: p.id, lvl });
+      assert.ok(mv.length >= 1 && mv.length <= 4, `${p.name} Nv${lvl}`);
+      for (const m of mv) assert.ok(m.name && m.kind && m.cd > 0 && (m.kind === 'splash' || m.pow > 0), `${p.name}: ${m.name}`);
+    }
+  }
+  // Charmander aprende Brasa no Nv 7, como no FireRed
+  assert.ok(!R.movesFor({ id: 4, lvl: 6 }).some(m => m.key === 'ember'));
+  assert.ok(R.movesFor({ id: 4, lvl: 7 }).some(m => m.key === 'ember'));
+  const next = R.nextMove({ id: 7, lvl: 5 });
+  assert.ok(next && next.lvl > 5 && next.move.name);
+});
+
+test('Pokémon de água não aparecem na grama alta', () => {
+  for (let slot = 0; slot < R.ROUTE.length; slot++) {
+    for (let i = 0; i < 40; i++) {
+      const id = M.wildSpecies(slot);
+      assert.ok(!R.DEX[id].types.includes('water'), `${R.DEX[id].name} na grama (parada ${slot})`);
+    }
+  }
 });

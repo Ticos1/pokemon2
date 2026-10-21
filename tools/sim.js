@@ -8,7 +8,7 @@ const vm = require('vm');
 
 const root = path.join(__dirname, '..');
 global.window = global;
-for (const f of ['assets/data.js', 'js/rules.js', 'js/mon.js', 'js/progress.js', 'js/journey.js', 'js/battle.js', 'js/fishing.js']) {
+for (const f of ['assets/data.js', 'assets/moves.js', 'js/moves.js', 'js/rules.js', 'js/mon.js', 'js/progress.js', 'js/journey.js', 'js/battle.js', 'js/fishing.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(root, f), 'utf8'), { filename: f });
 }
 const { Battle } = window.BATTLE;

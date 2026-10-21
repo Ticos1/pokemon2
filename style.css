@@ -44,12 +44,12 @@ button { font-family: inherit; cursor: pointer; }
 .step { min-width: 38px; color: #f8e050; }
 #prog { display: flex; gap: 1px; flex: 1; }
 .node {
-  width: 12px; height: 16px; border-radius: 2px;
+  flex: 1 1 0; min-width: 0; height: 16px; border-radius: 2px; overflow: hidden;
   background: #384068; color: #a8b0d0;
   display: flex; align-items: center; justify-content: center;
   font-size: 7px;
 }
-.node i { display: block; width: 12px; height: 12px; image-rendering: pixelated; background-repeat: no-repeat; }
+.node i { display: block; flex: none; width: 12px; height: 12px; image-rendering: pixelated; background-repeat: no-repeat; transform: scale(.75); }
 .node.done i, .node.champ i { width: 12px; height: 14px; }
 .node.done { background: #285838; color: #c8f0c8; }
 .node.current { background: #f8e050; color: #282828; box-shadow: 0 0 0 1px #fff; }
@@ -97,6 +97,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .bbtn:hover { filter: brightness(1.15); }
 .bbtn:first-child { background: #3868d0; border-color: #102050; }
+.bbtn.team { background: #38a058; border-color: #104020; }
 
 /* ---------- Diálogo ---------- */
 #dialog {
@@ -204,8 +205,14 @@ button { font-family: inherit; cursor: pointer; }
 .hpline { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; }
 .stats { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; margin: 10px 0; font-size: 7px; }
 .moves { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; text-align: left; }
-.move { background: #fff; border: 2px solid #c8c8d0; border-radius: 4px; padding: 4px; font-size: 7px; }
-.move small { color: #909090; float: right; }
+.move { background: #fff; border: 2px solid #c8c8d0; border-radius: 4px; padding: 4px; font-size: 7px; line-height: 11px; }
+.move b { display: block; font-weight: normal; margin-top: 3px; }
+.move small { color: #707080; display: block; font-size: 6px; }
+.move em { color: #909090; display: block; font-size: 6px; font-style: normal; }
+.next { margin-top: 8px; font-size: 7px; line-height: 12px; }
+.next b { color: #282828; font-weight: normal; }
+.mon-row.fainted { opacity: .55; }
+.mon-row .mv { color: #3868d0; }
 .actions { margin-top: 6px; }
 
 .end .modal-inner { background: #f8f8f0; }

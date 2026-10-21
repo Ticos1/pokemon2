@@ -176,5 +176,5 @@
     return `<span class="type" style="background:${info.color}">${info.pt}</span>`;
   }
 
-  window.UI = { text, panel, hpBar, say, choose, modal, closeModal, monImg, typeTag, el, esc, state, $ };
+  window.UI = { FONT, text, panel, hpBar, say, choose, modal, closeModal, monImg, typeTag, el, esc, state, $ };
 })();

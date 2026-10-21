@@ -47,101 +47,69 @@
     steel: { pt: 'Aço', color: '#b8b8d0' }, fairy: { pt: 'Fada', color: '#ee99ac' },
   };
 
-  // Tipos de golpe:
-  //  proj   projétil (count = leque, burst = rajada em sequência, homing = teleguiado)
-  //  beam   raio em linha reta após carregar
-  //  dash   investida corpo a corpo (físico)
-  //  strike impacto em área na posição do alvo após um aviso (pode desviar)
-  //  nova   onda em área ao redor de quem usou
-  const MOVES = {
-    normal: [
-      { name: 'Investida', kind: 'dash', pow: 40, cd: 1.6 },
-      { name: 'Hiper Raio', kind: 'beam', pow: 110, cd: 7, charge: .9, width: 16, lvl: 22 }],
-    fire: [
-      { name: 'Brasa', kind: 'proj', pow: 40, cd: 1.5, speed: 230, r: 5, burn: .1 },
-      { name: 'Lança-chamas', kind: 'proj', pow: 20, cd: 4.5, speed: 260, r: 6, burst: 6, gap: .07, jitter: .18, burn: .1, lvl: 20 }],
-    water: [
-      { name: "Jato d'Água", kind: 'proj', pow: 40, cd: 1.5, speed: 250, r: 5 },
-      { name: 'Hidro Bomba', kind: 'proj', pow: 110, cd: 6, speed: 240, r: 13, knock: 140, lvl: 22 }],
-    electric: [
-      { name: 'Choque do Trovão', kind: 'proj', pow: 40, cd: 1.5, speed: 280, r: 5, zigzag: true, para: .1 },
-      { name: 'Trovão', kind: 'strike', pow: 110, cd: 6, delay: .7, radius: 30, para: .3, lvl: 22 }],
-    grass: [
-      { name: 'Folha Navalha', kind: 'proj', pow: 22, cd: 1.8, speed: 240, r: 5, count: 3, spread: .32, crit: .2 },
-      { name: 'Raio Solar', kind: 'beam', pow: 120, cd: 7, charge: 1.2, width: 22, lvl: 24 }],
-    ice: [
-      { name: 'Vento Gelado', kind: 'proj', pow: 45, cd: 1.7, speed: 200, r: 7, slow: 1.5 },
-      { name: 'Raio de Gelo', kind: 'beam', pow: 90, cd: 5, charge: .45, width: 10, slow: 2.5, lvl: 22 }],
-    fighting: [
-      { name: 'Golpe de Caratê', kind: 'dash', pow: 50, cd: 1.6, crit: .2 },
-      { name: 'Chute Alto', kind: 'dash', pow: 100, cd: 4.5, knock: 160, lvl: 22 }],
-    poison: [
-      { name: 'Ferrão Venenoso', kind: 'proj', pow: 30, cd: 1.4, speed: 260, r: 4, poison: .3 },
-      { name: 'Bomba de Lodo', kind: 'strike', pow: 90, cd: 5, delay: .8, radius: 28, poison: .35, lvl: 22 }],
-    ground: [
-      { name: 'Tiro de Lama', kind: 'proj', pow: 35, cd: 1.8, speed: 210, r: 7, slow: 1.2 },
-      { name: 'Terremoto', kind: 'nova', pow: 100, cd: 6.5, radius: 115, lvl: 24 }],
-    flying: [
-      { name: 'Rajada de Vento', kind: 'proj', pow: 40, cd: 1.6, speed: 190, r: 10 },
-      { name: 'Golpe Aéreo', kind: 'dash', pow: 90, cd: 4.5, lvl: 22 }],
-    psychic: [
-      { name: 'Confusão', kind: 'proj', pow: 50, cd: 1.7, speed: 180, r: 7, homing: 3 },
-      { name: 'Psíquico', kind: 'strike', pow: 90, cd: 4.5, delay: .45, radius: 26, lvl: 22 }],
-    bug: [
-      { name: 'Míssil de Agulha', kind: 'proj', pow: 14, cd: 1.8, speed: 300, r: 3, burst: 4, gap: .09, jitter: .08 },
-      { name: 'Tesoura X', kind: 'dash', pow: 80, cd: 4, lvl: 22 }],
-    rock: [
-      { name: 'Lançar Pedra', kind: 'strike', pow: 50, cd: 1.9, delay: .6, radius: 18 },
-      { name: 'Deslize de Pedras', kind: 'strike', pow: 75, cd: 5, delay: .7, radius: 22, count: 3, scatter: 34, lvl: 22 }],
-    ghost: [
-      { name: 'Lambida', kind: 'dash', pow: 30, cd: 1.5, para: .3 },
-      { name: 'Bola Sombria', kind: 'proj', pow: 80, cd: 4, speed: 170, r: 10, homing: 2.5, lvl: 22 }],
-    dragon: [
-      { name: 'Sopro do Dragão', kind: 'proj', pow: 60, cd: 2, speed: 210, r: 8, para: .3 },
-      { name: 'Pulso do Dragão', kind: 'proj', pow: 90, cd: 4.5, speed: 220, r: 12, homing: 2, lvl: 24 }],
-    steel: [
-      { name: 'Garra de Metal', kind: 'dash', pow: 50, cd: 1.6 },
-      { name: 'Cauda de Ferro', kind: 'dash', pow: 100, cd: 4.5, knock: 150, lvl: 24 }],
-    fairy: [
-      { name: 'Voz Encantadora', kind: 'proj', pow: 40, cd: 1.5, speed: 190, r: 6, homing: 3 },
-      { name: 'Brilho Mágico', kind: 'nova', pow: 80, cd: 5, radius: 100, lvl: 22 }],
-    dark: [
-      { name: 'Mordida', kind: 'dash', pow: 60, cd: 1.7 },
-      { name: 'Pulso Sombrio', kind: 'proj', pow: 80, cd: 4, speed: 230, r: 9, lvl: 22 }],
-  };
-  for (const t in MOVES) for (const m of MOVES[t]) m.type = t;
+  const ML = window.MOVELIST;
+  const SPLASH = { name: 'Pirueta', kind: 'splash', pow: 0, total: 0, cd: 2.5, type: 'water' };
+  const STRUGGLE = { name: 'Debater', kind: 'dash', pow: 50, total: 50, cd: 1.8, type: null };
+  const MAX_MOVES = 4;
 
-  const SPLASH = { name: 'Pirueta', kind: 'splash', pow: 0, cd: 2.5, type: 'water' };
-  const STRUGGLE = { name: 'Debater', kind: 'dash', pow: 50, cd: 1.8, type: null };
+  // Golpes de MT/tutor que os iniciais e o Pikachu ganham (como no FireRed), para cada inicial ter
+  // resposta aos ginásios que levam vantagem sobre ele: Charmander aprende Garra de Metal (Brock) e
+  // Soco Trovão (Misty), a linha do Squirtle ganha Vento Gelado (Erika). A linha do Bulbasaur, que
+  // quase não aprende golpes de dano subindo de nível, ganha Bomba de Lodo (MT36).
+  const BULBASAUR = [['sludge-bomb', 28]];
+  const CHARMANDER = [['metal-claw', 6], ['thunder-punch', 9]];
+  const SQUIRTLE = [['icy-wind', 18]];
+  const EXTRA_MOVES = { 1: BULBASAUR, 2: BULBASAUR, 3: BULBASAUR, 4: CHARMANDER, 5: CHARMANDER, 6: CHARMANDER, 7: SQUIRTLE, 8: SQUIRTLE, 9: SQUIRTLE, 25: [['iron-tail', 26]], 26: [['iron-tail', 26]] };
 
-  // Golpes extras de algumas espécies (como no FireRed: Charmander aprende Garra de Metal).
-  // Para cada inicial ter resposta aos ginásios que levam vantagem sobre ele: Charmander aprende
-  // Soco Trovão (tutor do FireRed) para a Misty e a linha do Squirtle ganha Vento Gelado para a Erika.
-  const FLASH_CANNON = { name: 'Canhão de Luz', kind: 'proj', type: 'steel', pow: 65, cd: 2.2, speed: 240, r: 7 };
-  const THUNDER_PUNCH = { name: 'Soco Trovão', kind: 'dash', type: 'electric', pow: 75, cd: 2.2, para: .1 };
-  const EXTRA_MOVES = {
-    4: [[FLASH_CANNON, 6], [THUNDER_PUNCH, 9]], 5: [[FLASH_CANNON, 6], [THUNDER_PUNCH, 9]], 6: [[FLASH_CANNON, 6], [THUNDER_PUNCH, 9]],
-    7: [[MOVES.dark[0], 10], [MOVES.ice[0], 18]], 8: [[MOVES.dark[0], 10], [MOVES.ice[0], 18]], 9: [[MOVES.dark[0], 10], [MOVES.ice[0], 18]],
-    25: [[MOVES.steel[1], 26]], 26: [[MOVES.steel[1], 26]],
-  };
-
-  // Golpes do Pokémon de acordo com tipos e nível
-  function movesFor(mon) {
-    const sp = DEX[mon.id];
-    if (mon.id === 129) {
-      return mon.lvl >= 15 ? [SPLASH, MOVES.normal[0]] : [SPLASH];
-    }
+  // Linha evolutiva até a espécie (da forma base até ela)
+  function family(id) {
     const out = [];
-    const [t1, t2] = sp.types;
-    out.push(MOVES[t1][0]);
-    if (t2) out.push(MOVES[t2][0]);
-    if (t1 !== 'normal' && t2 !== 'normal') out.push(MOVES.normal[0]);
-    if (mon.lvl >= MOVES[t1][1].lvl) out.push(MOVES[t1][1]);
-    if (t2 && mon.lvl >= MOVES[t2][1].lvl + 6) out.push(MOVES[t2][1]);
-    for (const [move, lvl] of EXTRA_MOVES[mon.id] || []) {
-      if (mon.lvl >= lvl && !out.includes(move)) out.push(move);
-    }
+    for (let cur = id; cur; cur = DEX[cur].from) out.unshift(cur);
     return out;
+  }
+
+  // Golpes que o Pokémon aprendeu subindo de nível até o nível atual: os da espécie e os das
+  // pré-evoluções (até o nível em que evoluiu), mais os de MT/tutor. [[nível, golpe], ...] em ordem
+  function learned(id, lvl) {
+    const fam = family(id);
+    const out = [];
+    fam.forEach((sp, i) => {
+      const next = fam[i + 1];
+      const evo = next && DEX[sp].evo.find(e => e.to === next);
+      const until = next ? (evo ? evo.level : 1) : Infinity;
+      for (const [l, key] of ML.learnset(sp)) if (l <= lvl && l <= until) out.push([l, key]);
+    });
+    for (const [key, l] of EXTRA_MOVES[id] || []) if (l <= lvl) out.push([l, key]);
+    const seen = new Set();
+    return out.sort((a, b) => a[0] - b[0]).filter(([, k]) => !seen.has(k) && seen.add(k));
+  }
+
+  // Sem nenhum golpe de dano (Abra só tem Teletransporte, Ditto só Transformação)
+  function fallbackMove(id) {
+    for (const sp of family(id)) if (ML.learnset(sp).length) return ML.get(ML.learnset(sp)[0][1]);
+    return ML.get(DEX[id].types.includes('psychic') ? 'confusion' : 'pound');
+  }
+
+  // Os 4 golpes do Pokémon, como um treinador escolheria: fica com os mais fortes (golpe do mesmo
+  // tipo vale mais) e evita repetir tipo. Retorna na ordem em que foram aprendidos.
+  function movesFor(mon) {
+    if (mon.id === 129) return mon.lvl >= 15 ? [SPLASH, ML.get('tackle')] : [SPLASH];
+    const types = DEX[mon.id].types;
+    const pool = learned(mon.id, mon.lvl).map(([, k]) => ML.get(k));
+    if (!pool.length) return [fallbackMove(mon.id)];
+    const chosen = [];
+    while (chosen.length < MAX_MOVES && chosen.length < pool.length) {
+      let best = null, bestV = -1;
+      pool.forEach((m, i) => {
+        if (chosen.includes(m)) return;
+        const same = chosen.filter(c => c.type === m.type).length;
+        // empate: fica o aprendido por último
+        const v = m.total * (types.includes(m.type) ? 1.5 : 1) * Math.pow(.6, same) + i * .01;
+        if (v > bestV) { bestV = v; best = m; }
+      });
+      chosen.push(best);
+    }
+    return pool.filter(m => chosen.includes(m));
   }
 
   function newMovesAt(mon, oldLvl) {
@@ -149,13 +117,29 @@
     return movesFor(mon).filter(m => !before.has(m.name));
   }
 
-  // Progressão: evento, ginásio, evento, ginásio... (8 ginásios), mais um evento,
+  function forgottenAt(mon, oldLvl) {
+    const now = new Set(movesFor(mon).map(m => m.name));
+    return movesFor({ ...mon, lvl: oldLvl }).filter(m => !now.has(m.name));
+  }
+
+  // Próximo golpe que o Pokémon vai aprender subindo de nível: { lvl, move } ou null
+  function nextMove(mon) {
+    for (let l = mon.lvl + 1; l <= 100; l++) {
+      const mv = newMovesAt({ ...mon, lvl: l }, l - 1);
+      if (mv.length) return { lvl: l, move: mv[0] };
+    }
+    return null;
+  }
+
+  // Progressão: dois eventos e um ginásio, dois eventos e um ginásio... (8 ginásios), mais um evento,
   // a Elite dos 4 e o Campeão.  R = evento aleatório
   const ROUTE = [];
-  for (let i = 0; i < 8; i++) ROUTE.push('R', 'gym');
+  for (let i = 0; i < 8; i++) ROUTE.push('R', 'R', 'gym');
   ROUTE.push('R', 'elite', 'elite', 'elite', 'elite', 'champion');
+  // Insígnias que o jogador já tem ao chegar em cada parada (parte da jornada)
+  const STAGE = ROUTE.map((_, i) => ROUTE.slice(0, i).filter(x => x === 'gym').length);
   // Nível base dos eventos de cada parada
-  const SLOT_LEVEL = [4, 8, 9, 13, 14, 17, 18, 21, 22, 26, 26, 30, 30, 34, 34, 38, 38, 42, 43, 44, 45, 47];
+  const SLOT_LEVEL = [3, 4, 8, 8, 9, 13, 12, 14, 17, 17, 18, 21, 21, 22, 26, 25, 26, 30, 29, 30, 34, 33, 34, 38, 38, 42, 43, 44, 45, 47];
   // Depois de cada vitória o time descansa e recupera parte da vida
   const REST_HEAL = .25;
   // Bônus de dano dos Pokémon do jogador (o herói sempre luta melhor)
@@ -269,11 +253,11 @@
     { cls: 'Marinheiro', look: 'sailor', pool: [66, 72, 98, 116, 90, 67], money: 25 },
     { cls: 'Piqueniqueira', look: 'picnicker', pool: [43, 69, 16, 39, 25, 102], money: 18 },
     { cls: 'Maníaco Pokémon', look: 'maniac', pool: [104, 105, 79, 111, 30, 112], money: 30 },
-    { cls: 'Treinadora Ás', look: 'cooltrainer', pool: [17, 20, 26, 55, 57, 59, 62, 75, 82, 117, 119, 148], money: 45, minSlot: 8 },
+    { cls: 'Treinadora Ás', look: 'cooltrainer', pool: [17, 20, 26, 55, 57, 59, 62, 75, 82, 117, 119, 148], money: 45, minStage: 4 },
   ];
   const ROCKET_POOL = [19, 41, 23, 109, 88, 52, 96, 20, 24, 42, 110, 89];
 
-  const FISH_POOL = [[129, 40], [118, 12], [60, 12], [54, 8], [72, 10], [98, 8], [116, 6], [90, 6], [120, 5], [130, 2], [147, 2], [131, 1]];
+  const FISH_POOL = [[129, 40], [118, 12], [60, 12], [54, 8], [72, 10], [98, 8], [116, 6], [90, 6], [120, 5], [79, 5], [86, 5], [130, 2], [147, 2], [131, 1]];
   const GIFT_POOL = [133, 131, 106, 107, 138, 140, 137, 147, 25, 113, 143];
 
   const ITEMS = {
@@ -291,8 +275,8 @@
   const SHINY_RATE = 1 / 80;
 
   window.RULES = {
-    DEX, TYPE_INFO, MOVES, SPLASH, STRUGGLE, effectiveness, movesFor, newMovesAt,
-    ROUTE, SLOT_LEVEL, REST_HEAL, PLAYER_POWER, PLAYER_GUARD, GYMS, ELITE, CHAMPION_TEAMS, RIVAL_STARTER, TRAINER_CLASSES, ROCKET_POOL,
+    DEX, TYPE_INFO, SPLASH, STRUGGLE, effectiveness, movesFor, newMovesAt, forgottenAt, nextMove, learned,
+    ROUTE, STAGE, SLOT_LEVEL, REST_HEAL, PLAYER_POWER, PLAYER_GUARD, GYMS, ELITE, CHAMPION_TEAMS, RIVAL_STARTER, TRAINER_CLASSES, ROCKET_POOL,
     FISH_POOL, GIFT_POOL, ITEMS, BALLS, SHINY_RATE,
   };
 })();

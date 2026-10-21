@@ -160,6 +160,7 @@
       for (const p of this.particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; }
       this.particles = this.particles.filter(p => p.t < p.life);
       for (const tx of this.texts) tx.t += dt;
+      for (const u of this.units) if (u.callout && (u.callout.t += dt) >= u.callout.dur) u.callout = null;
       this.texts = this.texts.filter(tx => tx.t < tx.dur);
       for (const e of this.effects) {
         e.t += dt;
@@ -321,10 +322,9 @@
       u.faceRight = target.x > u.x;
       u.cds.set(m, m.cd * (1.15 - Math.min(.4, u.mon.spe / 400)));
       u.gcd = .55;
-      if (m.charge) {
-        this.effects.push({ kind: 'charge', u, color: this.color(m), t: 0, dur: m.charge });
-        if (m.charge >= .8) this.text(u.x, u.y - 48, m.name + '!', '#ffffff', m.charge + .3);
-      }
+      if (m.charge) this.effects.push({ kind: 'charge', u, color: this.color(m), t: 0, dur: m.charge });
+      // nome do golpe em cima de quem usou (acompanha o Pokémon)
+      u.callout = { msg: m.name, color: this.color(m), t: 0, dur: Math.max(1.1, (m.charge || 0) + .7) };
     }
 
     color(m) { return m.type ? TYPE_INFO[m.type].color : '#d8d8d8'; }
@@ -337,7 +337,6 @@
 
     execute(u, m, target) {
       const ang = m.kind === 'proj' ? this.aim(u, target, m.speed) : Math.atan2(target.y - u.y, target.x - u.x);
-      if (m.pow >= 80 && !m.charge) this.text(u.x, u.y - 48, m.name + '!', '#ffffff', .9);
       switch (m.kind) {
         case 'proj': {
           if (m.burst) {
@@ -400,7 +399,6 @@
         }
         case 'splash': {
           u.jump = .6;
-          this.text(u.x, u.y - 48, 'Pirueta!', '#ffffff', .8);
           this.after(.5, () => this.text(u.x, u.y - 44, 'Mas nada aconteceu!', '#d0d0d0', 1.2));
           break;
         }
@@ -476,7 +474,7 @@
     hit(att, def, m, ang) {
       if (def.state === 'faint' || def.removed || def.state === 'enter') return;
       const a = att.mon, d = def.mon;
-      const phys = m.kind === 'dash';
+      const phys = m.phys ?? m.kind === 'dash';
       const A = phys ? a.atk : a.spa, D = phys ? d.def : d.spd;
       const eff = effectiveness(m.type, DEX[d.id].types);
       const crit = Math.random() < .0625 + (m.crit || 0) ? 1.5 : 1;
@@ -499,6 +497,16 @@
       else if (eff < 1) { this.text(tx, ty - 14, 'pouco efetivo', '#b0b0b0', .9); sfx('weakHit'); }
       else sfx('hit');
       if (crit > 1) { this.text(tx, ty - 26, 'CRÍTICO!', '#f85050', 1); this.shake = Math.max(this.shake, 5); }
+      // Absorver, Mega Dreno...: recupera parte do dano. Desmantelar, Ataque Arriscado...: se machuca
+      if (m.drain && att.state !== 'faint' && a.hp > 0) {
+        const heal = Math.min(a.maxhp - a.hp, Math.max(1, Math.floor(dmg * m.drain)));
+        if (heal > 0) { a.hp += heal; this.text(att.x, att.y - 44, '+' + heal, '#78e878'); }
+      }
+      if (m.recoil && att.state !== 'faint' && a.hp > 0) {
+        const r = Math.max(1, Math.floor(dmg * m.recoil));
+        this.applyDamage(att, r, def);
+        this.text(att.x, att.y - 44, '-' + r, '#f0a0a0');
+      }
 
       if (def.state !== 'faint' && def.mon.hp > 0) {
         const st = def.status;
@@ -656,6 +664,7 @@
       ctx.globalAlpha = 1;
       if (this.catchAnim) this.drawCatch(ctx);
       for (const u of sorted) this.drawUnitBar(ctx, u);
+      for (const u of sorted) this.drawCallout(ctx, u);
       for (const tx of this.texts) {
         const k = tx.t / tx.dur;
         ctx.globalAlpha = k > .7 ? (1 - k) / .3 : 1;
@@ -716,6 +725,26 @@
       ctx.fillRect(x, y, Math.ceil(w * k), 3);
       ctx.fillStyle = u.side === 'p' ? '#58a8f8' : '#f86060';
       ctx.fillRect(x - 4, y - 1, 3, 5);
+    }
+
+    // Nome do golpe numa plaquinha com a cor do tipo, em cima da barra de vida
+    drawCallout(ctx, u) {
+      const c = u.callout;
+      if (!c || u.state === 'faint' || u.state === 'absorbed' || u.state === 'caught') return;
+      const k = c.t / c.dur;
+      const pop = Math.min(1, c.t / .12);
+      ctx.globalAlpha = k > .8 ? (1 - k) / .2 : 1;
+      ctx.font = `8px ${UI.FONT}`;
+      const w = Math.ceil(ctx.measureText(c.msg).width) + 10, h = 13;
+      const x = Math.round(clamp(u.x - w / 2, 2, W - w - 2)), y = Math.round(u.y - 54 - (1 - pop) * 6);
+      ctx.fillStyle = '#202030';
+      ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+      ctx.fillStyle = c.color;
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = 'rgba(0,0,0,.22)';
+      ctx.fillRect(x, y + h - 2, w, 2);
+      UI.text(ctx, c.msg, x + w / 2, y + 10, { size: 8, color: '#ffffff', align: 'center', outline: true });
+      ctx.globalAlpha = 1;
     }
 
     drawProjectile(ctx, p) {
