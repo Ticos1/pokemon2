@@ -117,15 +117,20 @@
     add(lk, Wd.npc('fisher', x + 26));
     await walkTo(x);
     await say('Pescador: Que lago bonito! Pegue minha vara e tente a sorte!');
-    if (!G.autopilot && !UI.state.auto) await say('Segure o clique (ou ESPAÇO) para a barra verde subir e mantenha o peixe dentro dela!');
+    if (!G.autopilot) await say('Segure o clique (ou ESPAÇO) para a barra verde subir e mantenha o peixe dentro dela!');
     const enc = J.encounter(G, slot);
     const mon = enc.enemies[0];
     G.world.dir = 'down';
-    const f = new window.FISHING.Fishing({ ...J.fishing(G, mon), autoFn: () => UI.state.auto || G.autopilot });
+    // a pesca é sempre em 1x e quem joga é o jogador (o AUTO só passa os textos);
+    // só o modo gravação pesca sozinho
+    const speed = G.speed;
+    GM.setSpeed(1);
+    const f = new window.FISHING.Fishing({ ...J.fishing(G, mon), autoFn: () => G.autopilot });
     f.lake = lk;
     G.fishing = f;
     const r = await f.promise;
     G.fishing = null;
+    GM.setSpeed(speed);
     G.world.dir = 'right';
     if (!r.caught) {
       await say('Ah, não... O Pokémon escapou!');

@@ -97,7 +97,7 @@
       this.fishPos = clamp(this.fishPos + this.fishSpeed + this.floatAcc, 0, FISH_MAX);
     }
 
-    // jogador automático (modo AUTO): segura quando a barra vai ficar abaixo do peixe.
+    // jogador automático (modo gravação): segura quando a barra vai ficar abaixo do peixe.
     // Ele reage com atraso (maior nos peixes difíceis), então às vezes o peixe escapa.
     autoHold() {
       if (this.ticks >= (this.autoNext || 0)) {

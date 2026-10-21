@@ -74,13 +74,16 @@ def read_btx(path):
 
 
 def follower_indexes(pret):
-    """Índice de seguidor de cada espécie (as formas fêmeas têm índice próprio e são puladas)."""
-    out = []
+    """Índice de seguidor de cada espécie (as formas fêmeas têm índice próprio e são puladas;
+    NIDORAN_F é uma espécie, não a forma fêmea de outra)."""
+    entries = []
     with open(os.path.join(pret, 'include', 'constants', 'follow_mon_idx.h')) as f:
         for line in f:
             m = re.match(r'#define FOLLOWER_MON_(\w+)\s+(\d+)', line)
-            if m and m.group(1) != 'NONE' and not m.group(1).endswith('_F'):
-                out.append(int(m.group(2)))
+            if m and m.group(1) != 'NONE':
+                entries.append((m.group(1), int(m.group(2))))
+    names = {n for n, _ in entries}
+    out = [i for n, i in entries if not (n.endswith('_F') and n[:-2] in names)]
     return out[:N]
 
 

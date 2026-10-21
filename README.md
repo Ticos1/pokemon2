@@ -50,8 +50,9 @@ Eventos possíveis:
 - **Treinador**: batalha que dá dinheiro (16 classes de treinador do FireRed).
 - **Lago**: um pescador empresta a vara (Magikarp, Krabby, Tentacool, Goldeen, Staryu, Slowpoke...) e começa o minijogo de pesca (estilo Stardew Valley). Segure o clique
   ou ESPAÇO para a barra verde subir e mantenha o peixe dentro dela até encher o medidor. Pescaria perfeita
-  deixa o Pokémon cansado (mais fácil de capturar), e às vezes vem um baú com item. No AUTO, o pescador
-  automático erra de vez em quando nos peixes difíceis (Gyarados, Dratini, Lapras).
+  deixa o Pokémon cansado (mais fácil de capturar), e às vezes vem um baú com item. A pesca roda sempre em 1x
+  (depois volta para a velocidade escolhida) e quem segura a barra é sempre o jogador, mesmo com AUTO ligado.
+  Só o modo gravação pesca sozinho (e erra de vez em quando nos peixes difíceis: Gyarados, Dratini, Lapras).
 - **Equipe Rocket**: batalha mais difícil; pode deixar cair um Doce Raro.
 - **Rival Blue**: aparece mais forte a cada encontro.
 - **Presente**: um senhor te dá um Pokémon raro.

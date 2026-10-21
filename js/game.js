@@ -858,7 +858,7 @@
 
   function setupButtons() {
     const sp = $('#btn-speed');
-    sp.onclick = () => { setSpeed(G.speed === 1 ? 2 : G.speed === 2 ? 4 : 1); window.SFX.select(); };
+    sp.onclick = () => { if (G.fishing) return; setSpeed(G.speed === 1 ? 2 : G.speed === 2 ? 4 : 1); window.SFX.select(); };
     const auto = $('#btn-auto');
     auto.onclick = () => { UI.state.auto = !UI.state.auto; auto.classList.toggle('on', UI.state.auto); window.SFX.select(); };
     const mute = $('#btn-mute');
@@ -879,7 +879,7 @@
     window.addEventListener('pointercancel', () => press(false));
     window.addEventListener('keydown', e => {
       if (e.code === 'Escape' && G.autopilot) setRecording(false);
-      if (['Digit1', 'Digit2', 'Digit4'].includes(e.code)) setSpeed(+e.code.slice(5));
+      if (['Digit1', 'Digit2', 'Digit4'].includes(e.code) && !G.fishing) setSpeed(+e.code.slice(5));
       if (G.fishing && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyZ')) { e.preventDefault(); if (!e.repeat) press(true); }
     });
     window.addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyZ') press(false); });
@@ -928,7 +928,7 @@
   }
 
   window.GAME = {
-    G, wait, say, choose, count, addItem, ballCount, updateHud, walkTo, runBattle, afterBattle, addCaught,
+    G, wait, say, choose, setSpeed, count, addItem, ballCount, updateHud, walkTo, runBattle, afterBattle, addCaught,
     flashTransition, fade, vsScreen, badgeScene, evolveScene, healParty, visitShop, goInside, goOutside,
   };
 
