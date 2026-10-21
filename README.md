@@ -135,6 +135,7 @@ tools/build_moves.py    gera assets/moves.js (golpes que cada Pokémon aprende p
 tools/build_gba.py      gera assets/gba/ a partir do projeto pret/pokefirered
 tools/build_overworld.py gera assets/overworld.png (Pokémon andando de lado) do pret/pokeheartgold
 tools/gba_maps.py       renderiza mapas e metatiles do FireRed
+tools/build_paths.py    gera assets/paths.js: por onde andar em cada mapa (colisão do FireRed) e onde há água
 tools/sim.js            simula partidas sem tela para balancear (node tools/sim.js 40 1)
 tools/test.js           testes rápidos (node tools/test.js), rodam no GitHub Actions a cada push
 ```
@@ -148,6 +149,7 @@ Para gerar de novo os gráficos do GBA:
 ```bash
 git clone --depth 1 https://github.com/pret/pokefirered ../pokefirered
 python3 tools/build_gba.py ../pokefirered
+python3 tools/build_paths.py ../pokefirered
 ```
 
 Para gerar de novo os sprites dos Pokémon andando de lado (os seguidores originais do HeartGold/SoulSilver):

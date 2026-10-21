@@ -30,9 +30,52 @@
   function setMap(w, key, dark) {
     if (!key) { w.map = null; return; }
     if (w.map && w.map.key === key) return;
-    w.map = { key, start: w.px, dark: !!dark };
+    w.map = { key, start: w.px, dark: !!dark, path: mapPath(key) };
     w.objects = w.objects.filter(o => o.keep);
     ART.loadMap(key);
+  }
+
+  // Caminho andável do mapa (tools/build_paths.py, da colisão do FireRed): pontos em pixels nos pés
+  // de quem anda, com a distância acumulada. Sem caminho, o treinador anda reto no meio do mapa.
+  const pathCache = {};
+  function mapPath(key) {
+    if (pathCache[key]) return pathCache[key];
+    const raw = (window.MAP_PATHS || {})[key];
+    if (!raw || raw.length < 2) return null;
+    const pts = raw.map(([x, y]) => ({ x: x * 16 + 8, y: y * 16 + 15 }));
+    let len = 0;
+    pts[0].d = 0;
+    for (let i = 1; i < pts.length; i++) {
+      len += Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+      pts[i].d = len;
+    }
+    return (pathCache[key] = { pts, len });
+  }
+
+  // Ponto do caminho a uma distância d do começo; no fim ele dá meia-volta (vai e volta)
+  function pathPoint(path, d) {
+    const L = path.len;
+    let t = ((d % (2 * L)) + 2 * L) % (2 * L);
+    const back = t > L;
+    if (back) t = 2 * L - t;
+    const pts = path.pts;
+    let i = 1;
+    while (i < pts.length - 1 && pts[i].d < t) i++;
+    const a = pts[i - 1], b = pts[i];
+    const k = (t - a.d) / Math.max(1, b.d - a.d);
+    const x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
+    let dx = Math.sign(b.x - a.x), dy = Math.sign(b.y - a.y);
+    if (back) { dx = -dx; dy = -dy; }
+    const dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
+    return { x, y, dir };
+  }
+
+  // Onde fica na tela (baixa resolução) algo que está na posição x do mundo, andando pelo caminho do mapa
+  function mapScreen(w, x) {
+    const path = w.map.path;
+    const me = pathPoint(path, w.px - w.map.start);
+    const p = pathPoint(path, x - w.map.start);
+    return { x: PLAYER_SX + p.x - me.x, y: FEET_Y + p.y - me.y, dir: p.dir };
   }
 
   // Altura da câmera com mais chão (pixels que não são o vazio preto) na faixa onde o treinador anda
@@ -67,6 +110,12 @@
     lctx.fillStyle = '#000';
     lctx.fillRect(0, 0, LW, LH);
     if (!img) return;
+    // a câmera segue o treinador pelo caminho: ele fica sempre no mesmo lugar da tela
+    if (w.map.path) {
+      const me = pathPoint(w.map.path, w.px - w.map.start);
+      lctx.drawImage(img, Math.round(PLAYER_SX - me.x), Math.round(FEET_Y - me.y));
+      return;
+    }
     const mw = img.width, mh = img.height;
     // a câmera anda na metade da velocidade do treinador e para no fim do mapa
     const cx = mw <= LW ? -(LW - mw) / 2 : Math.min(mw - LW, Math.max(0, (w.px - w.map.start) * .5));
@@ -166,19 +215,62 @@
         for (let r = 0; r < ROWS; r++) ART.drawTile(lctx, tileAt(w, c, r), c * 16 - cx, r * 16);
       }
     }
+    // No mapa, cada objeto vai para o seu ponto do caminho: desloca o desenho dele (que é feito
+    // como se estivesse na linha reta da rota) até lá
+    const onPath = !!(w.map && w.map.path);
+    const shift = o => {
+      if (!onPath || o.x === undefined) return { x: 0, y: 0 };
+      const s = mapScreen(w, o.x);
+      return { x: s.x - (o.x - cx), y: s.y - FEET_Y, dir: s.dir };
+    };
+    const shifted = (c, o, k, fn) => {
+      const d = shift(o);
+      c.save();
+      c.translate(d.x * k, d.y * k);
+      fn();
+      c.restore();
+    };
+    // w.face (pesca no mapa) manda; senão no mapa ele olha para onde o caminho vai
+    const pdir = w.face || (onPath ? pathPoint(w.map.path, w.px - w.map.start).dir : w.dir);
+
     // objetos e personagens ordenados pelo y dos pés
     const step = w.walking ? [1, 0, 2, 0][Math.floor(w.dist / 8) % 4] : 0;
-    const drawables = w.objects.filter(o => o.draw).map(o => ({ y: o.y, fn: () => o.draw(lctx, cx) }));
-    drawables.push({ y: FEET_Y + .5, fn: () => ART.drawChar(lctx, 'player', w.dir, step, PLAYER_SX, FEET_Y) });
+    const drawables = w.objects.filter(o => o.draw).map(o => ({
+      y: o.y + shift(o).y,
+      fn: () => shifted(lctx, o, 1, () => {
+        // no mapa não há para onde sair do caminho: quem já batalhou some aos poucos
+        if (onPath && o.aside !== undefined) {
+          const a = 1 - (performance.now() - o.aside) / 500;
+          if (a <= 0) return;
+          lctx.globalAlpha = a;
+        }
+        // no mapa quem espera no caminho olha para o treinador que vem chegando
+        if (onPath && o.look && o.y === FEET_Y) {
+          const back = { left: 'right', right: 'left', up: 'down', down: 'up' }[shift(o).dir];
+          const keep = o.dir;
+          o.dir = back;
+          o.draw(lctx, cx);
+          o.dir = keep;
+        } else o.draw(lctx, cx);
+      }),
+    }));
+    drawables.push({ y: FEET_Y + .5, fn: () => ART.drawChar(lctx, 'player', pdir, step, PLAYER_SX, FEET_Y) });
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.fn();
     ctx.drawImage(low, 0, 0, W, LH * 2);
 
-    // Pokémon que segue o jogador (em resolução cheia)
+    // Pokémon que segue o jogador (em resolução cheia); no mapa ele vem atrás pelo mesmo caminho
     const lead = party.find(m => m.hp > 0);
-    if (lead && w.follower) drawFollower(ctx, lead, (PLAYER_SX - 22) * 2, FEET_Y * 2 - 2, w);
+    if (lead && w.follower) {
+      if (onPath) {
+        const f = mapScreen(w, w.px - 22);
+        drawFollower(ctx, lead, f.x * 2, f.y * 2 - 2, w, f.dir);
+        // ele está atrás (mais acima na tela): o treinador fica na frente dele
+        if (f.y < FEET_Y) ART.drawChar(ctx, 'player', pdir, step, PLAYER_SX * 2, FEET_Y * 2, 2);
+      } else drawFollower(ctx, lead, (PLAYER_SX - 22) * 2, FEET_Y * 2 - 2, w, w.dir);
+    }
     // textos e efeitos em resolução cheia
-    for (const o of w.objects) if (o.drawHi) o.drawHi(ctx, cx);
+    for (const o of w.objects) if (o.drawHi) shifted(ctx, o, 2, () => o.drawHi(ctx, cx));
     // cavernas escuras: só a luz em volta do treinador (o Flash clareia)
     if (w.map && w.map.dark) {
       const g = ctx.createRadialGradient(PLAYER_SX * 2, FEET_Y * 2 - 20, 60, PLAYER_SX * 2, FEET_Y * 2 - 20, w.map.flash ? 420 : 230);
@@ -188,7 +280,8 @@
     if (w.weather) ART.drawWeather(ctx, w.weather, performance.now() / 1000);
     if (w.bubble) {
       const o = w.bubble;
-      const bx = (o.x - cx) * 2, by = FEET_Y * 2 - 58;
+      const at = onPath ? mapScreen(w, o.x) : { x: o.x - cx, y: FEET_Y };
+      const bx = at.x * 2, by = at.y * 2 - 58;
       ctx.fillStyle = '#282828'; ctx.fillRect(bx - 9, by - 13, 18, 20);
       ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 7, by - 11, 14, 16);
       UI.text(ctx, '!', bx + 1, by + 2, { size: 10, color: '#e03030', shadow: false });
@@ -197,18 +290,18 @@
 
   // Pokémon andando atrás do jogador. De lado usa o sprite original de seguidor (HeartGold/SoulSilver),
   // trocando o quadro a cada passo; de frente/costas usa o sprite de batalha, com passos que pulam e achatam
-  function drawFollower(ctx, mon, cx, groundY, w) {
-    if (w.dir === 'left' || w.dir === 'right') {
+  function drawFollower(ctx, mon, cx, groundY, w, dir) {
+    if (dir === 'left' || dir === 'right') {
       // um passo a cada 16px, junto com o jogador; parado ele continua mexendo devagar
       const step = w.walking ? Math.floor(w.dist / 16) : Math.floor(performance.now() / 500);
       ctx.fillStyle = 'rgba(0,0,0,.25)';
       ctx.beginPath();
       ctx.ellipse(cx, groundY, 16, 5, 0, 0, 7);
       ctx.fill();
-      ART.drawWalker(ctx, mon.id, mon.shiny, w.dir, step, cx, groundY + 4, 2);
+      ART.drawWalker(ctx, mon.id, mon.shiny, dir, step, cx, groundY + 4, 2);
       return;
     }
-    const back = w.dir === 'up';
+    const back = dir === 'up';
     const img = ART.monCanvas(mon.id, mon.shiny, back);
     const Z = ART.MON_SIZE;
     const s = .6;
@@ -244,9 +337,12 @@
 
   // depois da batalha o treinador sai do caminho (sobe para a grama)
   function stepAside(o) {
+    o.aside = performance.now();
+    if (G().world.map && G().world.map.path) return;
     o.y = TOP_Y - 4;
     o.dir = 'down';
   }
+  const G = () => window.GAME.G;
 
   // Grama alta cobrindo o caminho; quem está dentro some da cintura para baixo, como no GBA
   function tallGrass(x0, cols = 6) {
@@ -337,6 +433,8 @@
 
   // Ponta da vara e ponto do lago onde cai a boia, em resolução cheia
   function fishingSpots(w, lk) {
+    const wet = waterNear(w);
+    if (wet) return { hand: { x: PLAYER_SX * 2 + 6, y: (FEET_Y - 12) * 2 }, bob: { x: wet.x * 2, y: wet.y * 2 } };
     const cx = camX(w);
     return {
       hand: { x: PLAYER_SX * 2 + 6, y: (FEET_Y - 12) * 2 },
@@ -344,8 +442,31 @@
     };
   }
 
+  // No mapa: o bloco de água mais perto do treinador (posição na tela e para onde ele olha)
+  function waterNear(w) {
+    const rows = w.map && w.map.path && (window.MAP_WATER || {})[w.map.key];
+    if (!rows) return null;
+    const me = pathPoint(w.map.path, w.px - w.map.start);
+    const tx = Math.floor(me.x / 16), ty = Math.floor((me.y - 1) / 16);
+    let best = null;
+    for (let y = Math.max(0, ty - 6); y <= Math.min(rows.length - 1, ty + 6); y++) {
+      for (let x = Math.max(0, tx - 6); x <= tx + 6; x++) {
+        const h = parseInt(rows[y][x >> 2] || '0', 16);
+        if (!(h & (8 >> (x & 3)))) continue;
+        const d = Math.hypot(x - tx, y - ty);
+        if (d >= 1 && (!best || d < best.d)) best = { x, y, d };
+      }
+    }
+    if (!best) return null;
+    const dx = best.x - tx, dy = best.y - ty;
+    return {
+      x: PLAYER_SX + best.x * 16 + 8 - me.x, y: FEET_Y + best.y * 16 + 8 - me.y,
+      dir: Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'),
+    };
+  }
+
   window.WORLD = {
     PLAYER_SX, FEET_Y, TOP_Y, newWorld, setMap, walkTo, update, draw,
-    npc, stepAside, tallGrass, lake, itemBall, building, plaza, sign, fishingSpots,
+    npc, stepAside, tallGrass, lake, itemBall, building, plaza, sign, fishingSpots, waterNear,
   };
 })();

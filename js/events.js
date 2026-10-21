@@ -512,7 +512,10 @@
     if (!G.autopilot) await say('Segure o clique (ou ESPAÇO) para a barra verde subir e mantenha o peixe dentro dela!');
     const enc = J.encounter(G, i);
     const mon = enc.enemies[0];
+    // olha para a água (no mapa, o bloco de água mais perto)
+    const wet = Wd.waterNear(G.world);
     G.world.dir = 'down';
+    if (wet) G.world.face = wet.dir;
     // a pesca é sempre em 1x e quem joga é o jogador (o AUTO só passa os textos);
     // só o modo gravação pesca sozinho
     const speed = G.speed;
@@ -524,6 +527,7 @@
     G.fishing = null;
     GM.setSpeed(speed);
     G.world.dir = 'right';
+    G.world.face = null;
     if (!r.caught) {
       await say('Ah, não... O Pokémon escapou!');
       await say('Pescador: Acontece! Boa sorte na jornada!');
