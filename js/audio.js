@@ -68,6 +68,8 @@
     victory: () => notes([523, 523, 523, 659, 0, 587, 659, 784, 0, 784, 1047], .1, { type: 'square', vol: .05 }),
     evolve: () => notes([392, 523, 659, 784, 1047, 1319], .14, { type: 'triangle', vol: .07 }),
     alert: () => notes([1320, 1760], .06),
+    splash: () => { noise(.25, { vol: .08 }); tone(300, .15, { slide: -150, vol: .03, type: 'triangle' }); },
+    reel: () => tone(1800, .02, { vol: .015 }),
     badge: () => notes([784, 988, 1175, 1568, 0, 1568, 1760, 2093], .1, { type: 'square', vol: .05 }),
     gameOver: () => notes([392, 330, 262, 196], .22, { type: 'triangle', vol: .07 }),
   };
@@ -76,6 +78,7 @@
   window.AUDIO = {
     unlock: ac,
     toggle() { muted = !muted; return muted; },
+    set(m) { muted = !!m; return muted; },
     get muted() { return muted; },
   };
 })();

@@ -8,9 +8,12 @@ Feito para gravar a tela e postar (formato vertical 9:16).
 
 ## Como jogar
 
-Abra o `index.html` no navegador (Chrome, Edge ou Firefox), com dois cliques no arquivo.
+Jogue direto no navegador: **https://ticos1.github.io/pokemon2/**
 
-Se algo não carregar, rode um servidor local na pasta do projeto e acesse http://localhost:8000:
+No celular dá para instalar (menu do navegador → "Adicionar à tela inicial"): abre em tela cheia e funciona sem internet.
+
+Para rodar no computador, abra o `index.html` com dois cliques. Se algo não carregar, rode um servidor local
+na pasta do projeto e acesse http://localhost:8000:
 
 ```bash
 python3 -m http.server 8000
@@ -18,9 +21,13 @@ python3 -m http.server 8000
 
 - **Clique** ou **ESPAÇO** avança os textos.
 - **1x / 2x / 4x** muda a velocidade do jogo.
-- **AUTO** faz os textos avançarem sozinhos (bom para gravar).
+- **AUTO** faz os textos avançarem sozinhos.
+- **MODO GRAVAÇÃO** (na tela inicial): textos, escolhas, captura e loja no automático, sem botões nem cursor
+  na tela. Depois de apertar COMEÇAR, a partida vai sozinha até o fim. As teclas **1**, **2** e **4** mudam a
+  velocidade e **ESC** desliga o modo.
 - Clique num Pokémon da barra de baixo para ver os status, usar itens, colocar na frente ou trocar com o PC.
 - Na batalha: **MOCHILA** pausa e deixa usar poções; **FUGIR** só funciona contra selvagens.
+- O jogo salva sozinho antes de cada parada. Na tela inicial aparece **CONTINUAR**.
 
 ## A jornada (22 paradas)
 
@@ -38,7 +45,10 @@ Eventos possíveis:
 
 - **Grama alta**: Pokémon selvagem. Quando ele fica fraco, aparece a opção de jogar a Poké Bola, que balança até 3 vezes e pode escapar.
 - **Treinador**: batalha que dá dinheiro (16 classes de treinador do FireRed).
-- **Lago**: um pescador empresta a vara e você pesca um Pokémon aquático (cuidado com o Magikarp...).
+- **Lago**: um pescador empresta a vara e começa o minijogo de pesca (estilo Stardew Valley). Segure o clique
+  ou ESPAÇO para a barra verde subir e mantenha o peixe dentro dela até encher o medidor. Pescaria perfeita
+  deixa o Pokémon cansado (mais fácil de capturar), e às vezes vem um baú com item. No AUTO, o pescador
+  automático erra de vez em quando nos peixes difíceis (Gyarados, Dratini, Lapras).
 - **Equipe Rocket**: batalha mais difícil; pode deixar cair um Doce Raro.
 - **Rival Blue**: aparece mais forte a cada encontro.
 - **Presente**: um senhor te dá um Pokémon raro.
@@ -50,6 +60,8 @@ Outras regras:
 - Todo o time ganha experiência (quem fica no banco ganha 85%).
 - Shiny: 1 em 80 nos selvagens. Lendários (aves e Mewtwo/Mew) podem aparecer na reta final.
 - Evolução por nível com animação. Evoluções por pedra ou troca viram nível fixo.
+- Cada inicial tem resposta para os ginásios que levam vantagem sobre ele: Charmander aprende Soco Trovão
+  (Nv 9, contra a Misty) e a linha do Squirtle aprende Vento Gelado (Nv 18, contra a Erika).
 - Vantagem de tipo, golpe do mesmo tipo do Pokémon (STAB), críticos, queimadura, veneno, paralisia e lentidão.
 - Modos **1x1** e **2x2**.
 - Se o time todo desmaiar, é fim de jogo. A tela mostra até onde você chegou.
@@ -58,22 +70,32 @@ Outras regras:
 
 ```
 index.html, style.css   página e estilo
+manifest.webmanifest    app instalável; sw.js guarda os arquivos para jogar offline
 js/rules.js             tipos, golpes, ginásios, treinadores, loja
 js/mon.js               status, experiência e evolução dos Pokémon
 js/progress.js          XP, times inimigos e sorteio da rota
+js/journey.js           regras da jornada (inimigos de cada parada, prêmios, cura, itens, pesca), usadas pelo jogo e pelo simulador
 js/battle.js            batalha em tempo real (lógica + desenho)
-js/game.js              caminhada, eventos, menus e telas
-js/art.js, js/ui.js     pixel art e interface
+js/fishing.js           minijogo de pesca
+js/world.js             caminhada para a direita: mapa, cidades, grama alta, lagos e personagens
+js/events.js            o que acontece em cada parada da rota
+js/game.js              estado, HUD, menus, batalhas, telas de início e fim, loop
+js/save.js              jogo salvo e preferências (localStorage)
+js/art.js, js/ui.js     desenho dos sprites e interface
 js/audio.js             efeitos sonoros sintetizados
 assets/                 sprites e dados gerados da PokéAPI
 assets/gba/             gráficos do FireRed: personagens, retratos, tiles, prédios, arenas
+assets/fonts/           fonte Press Start 2P (licença OFL)
 tools/build_assets.py   gera os Pokémon e itens de assets/ (PokéAPI)
 tools/build_gba.py      gera assets/gba/ a partir do projeto pret/pokefirered
 tools/gba_maps.py       renderiza mapas e metatiles do FireRed
 tools/sim.js            simula partidas sem tela para balancear (node tools/sim.js 40 1)
+tools/test.js           testes rápidos (node tools/test.js), rodam no GitHub Actions a cada push
 ```
 
-Para ajustar a dificuldade, veja `SLOT_LEVEL`, `GYMS`, `PLAYER_POWER` e `SHINY_RATE` em `js/rules.js`.
+Para ajustar a dificuldade, veja `SLOT_LEVEL`, `GYMS` (nível e `iv` dos líderes), `PLAYER_POWER` e `SHINY_RATE`
+em `js/rules.js`, e confira com o simulador. Com 100 partidas por inicial no 1x1, cada um chega ao título de
+Campeão em cerca de 35% a 50% das vezes, e nenhum ginásio derruba mais de ~15% das partidas.
 
 Para gerar de novo os gráficos do GBA:
 

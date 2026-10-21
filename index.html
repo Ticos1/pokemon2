@@ -4,9 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pokémon Jornada por Kanto</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <meta name="description" content="Jogo de fã com gráficos do FireRed: o treinador anda sozinho por Kanto e as batalhas acontecem em tempo real.">
+  <meta name="theme-color" content="#202848">
+  <meta property="og:title" content="Pokémon: Jornada por Kanto">
+  <meta property="og:description" content="O treinador anda sozinho por Kanto: 8 ginásios, Elite dos 4 e batalhas em tempo real.">
+  <meta property="og:type" content="website">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preload" href="assets/fonts/press-start-2p-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23f04040' stroke='%23222'/%3E%3Cpath d='M1 8h14v1a7 7 0 0 1-14 0z' fill='%23fff'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23fff' stroke='%23222'/%3E%3C/svg%3E">
 </head>
@@ -47,7 +51,16 @@
   <script src="js/art.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/progress.js"></script>
+  <script src="js/journey.js"></script>
+  <script src="js/save.js"></script>
   <script src="js/battle.js"></script>
+  <script src="js/fishing.js"></script>
+  <script src="js/world.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/events.js"></script>
+  <script>
+    // no GitHub Pages (https) o jogo funciona offline e pode ser instalado no celular
+    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  </script>
 </body>
 </html>

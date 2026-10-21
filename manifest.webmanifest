@@ -1,0 +1,15 @@
+{
+  "name": "Pokémon: Jornada por Kanto",
+  "short_name": "Jornada Kanto",
+  "description": "O treinador anda sozinho por Kanto e as batalhas acontecem em tempo real.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#101018",
+  "theme_color": "#202848",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

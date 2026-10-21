@@ -85,8 +85,10 @@
     ctx.restore();
   }
 
-  function itemStyle(icon) {
-    return `background-image:url(${SHEET_FILES.items});background-position:-${icon * 30}px 0`;
+  // Ícones de itens (30x30 na folha); size muda o tamanho exibido
+  function itemStyle(icon, size = 30) {
+    const k = size / 30;
+    return `background-image:url(${SHEET_FILES.items});background-size:${SHEETS.items ? SHEETS.items.width * k : 270 * k}px ${size}px;background-position:-${icon * size}px 0`;
   }
 
   function drawItem(ctx, icon, cx, cy, scale = 1, rot = 0) {
@@ -124,9 +126,23 @@
   }
 
   // ---------- Tiles da rota (16x16) ----------
-  function drawTile(ctx, name, x, y) {
+  // fromY > 0 desenha só a parte de baixo do tile (grama alta na frente das pernas)
+  function drawTile(ctx, name, x, y, fromY = 0, scale = 1) {
     const i = window.GBA.tiles[name];
-    ctx.drawImage(SHEETS.tiles, i * 16, 0, 16, 16, Math.round(x), Math.round(y), 16, 16);
+    const h = 16 - fromY;
+    ctx.drawImage(SHEETS.tiles, i * 16, fromY, 16, h, Math.round(x), Math.round(y + fromY * scale), 16 * scale, h * scale);
+  }
+
+  function tileStyle(name, size = 16) {
+    const n = Object.keys(window.GBA.tiles).length;
+    return `background-image:url(${SHEET_FILES.tiles});background-size:${n * size}px ${size}px;background-position:-${window.GBA.tiles[name] * size}px 0`;
+  }
+
+  // Cabeça de um personagem do mapa (ícones da barra de progresso)
+  function headStyle(look, size = 12) {
+    const row = window.GBA.people[look] ?? window.GBA.people.youngster;
+    const k = size / 16;
+    return `background-image:url(${SHEET_FILES.people});background-size:${144 * k}px ${Object.keys(window.GBA.people).length * 32 * k}px;background-position:0 -${(row * 32 + 7) * k}px`;
   }
 
   // Prédio desenhado com a base em y, centralizado em x
@@ -156,6 +172,6 @@
 
   window.ART = {
     load, SHEETS, MON_SIZE, MON_FEET, canvas, drawMon, monCanvas, iconStyle, drawIcon, itemStyle, drawItem,
-    drawChar, drawPortrait, drawTile, drawBuilding, buildingSize, drawBadge, badgeStyle, arena,
+    drawChar, drawPortrait, drawTile, tileStyle, headStyle, drawBuilding, buildingSize, drawBadge, badgeStyle, arena,
   };
 })();

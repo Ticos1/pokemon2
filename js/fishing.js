@@ -16,9 +16,10 @@
   const GAIN = .002, LOSS = .003;
   const GRACE = 40;       // passos iniciais sem perder (a barra ainda está indo até o peixe)
   const TREASURE_GAIN = .0135, TREASURE_LOSS = .01;
+  const AUTO_REACT = 3, AUTO_LAG = 4; // reação do jogador automático, em passos
 
-  // Tela (360x640): moldura à esquerda, longe do lago
-  const PX = 26, PY = 116, TX = PX + 12, TY = PY + 14, TW = 26, TH = 300, MX = TX + TW + 8, MW = 8;
+  // Tela (360x640): moldura à direita, acima do lago (o jogador fica à esquerda)
+  const PX = 268, PY = 96, TX = PX + 12, TY = PY + 14, TW = 26, TH = 300, MX = TX + TW + 8, MW = 8;
   const SC = TH / TRACK;
 
   class Fishing {
@@ -96,11 +97,16 @@
       this.fishPos = clamp(this.fishPos + this.fishSpeed + this.floatAcc, 0, FISH_MAX);
     }
 
-    // jogador automático (modo AUTO): segura quando a barra vai ficar abaixo do peixe
+    // jogador automático (modo AUTO): segura quando a barra vai ficar abaixo do peixe.
+    // Ele reage com atraso (maior nos peixes difíceis), então às vezes o peixe escapa.
     autoHold() {
-      const fish = this.fishPos + FISH_H / 2 + this.fishSpeed * 6;
-      const bar = this.barPos + this.barH / 2 + this.barSpeed * 11;
-      return bar > fish;
+      if (this.ticks >= (this.autoNext || 0)) {
+        const fish = this.fishPos + FISH_H / 2 + this.fishSpeed * 6;
+        const bar = this.barPos + this.barH / 2 + this.barSpeed * 11;
+        this.autoState = bar > fish;
+        this.autoNext = this.ticks + AUTO_REACT + randInt(0, Math.round(this.difficulty / AUTO_LAG));
+      }
+      return this.autoState;
     }
 
     tick() {
@@ -273,7 +279,8 @@
         const msg = r.caught ? (r.perfect ? 'PERFEITO!' : 'PEGOU!') : 'ESCAPOU...';
         UI.text(ctx, msg, 180, 300, { size: 16, color: r.caught ? '#f8e050' : '#f86060', align: 'center', outline: true });
       } else if (this.t < 2.5 && !this.manual) {
-        UI.text(ctx, this.autoFn() ? 'AUTO' : 'SEGURE PARA SUBIR', MX + MW + 18, TY + TH / 2, { size: 8, color: '#ffffff', outline: true });
+        UI.text(ctx, this.autoFn() ? 'AUTO' : 'SEGURE', PX - 8, TY + TH / 2, { size: 8, color: '#ffffff', align: 'right', outline: true });
+        if (!this.autoFn()) UI.text(ctx, 'PARA SUBIR', PX - 8, TY + TH / 2 + 14, { size: 8, color: '#ffffff', align: 'right', outline: true });
       }
     }
 

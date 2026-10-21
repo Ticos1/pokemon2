@@ -84,12 +84,17 @@
     return weighted(pool);
   }
 
+  // Depois de carregar um jogo salvo, os novos Pokémon não podem repetir uid
+  function syncUid(mons) {
+    for (const m of mons) uidCounter = Math.max(uidCounter, m.uid + 1);
+  }
+
   function rollShiny(mult = 1) {
     return Math.random() < SHINY_RATE * mult;
   }
 
   window.MON = {
     rand, randInt, pick, weighted, create, refresh, name, xpNext, evolutionFor, evolvedFor,
-    wildSpecies, rollShiny, bst, maxBstFor,
+    wildSpecies, rollShiny, bst, maxBstFor, syncUid,
   };
 })();

@@ -114,11 +114,14 @@
   const SPLASH = { name: 'Pirueta', kind: 'splash', pow: 0, cd: 2.5, type: 'water' };
   const STRUGGLE = { name: 'Debater', kind: 'dash', pow: 50, cd: 1.8, type: null };
 
-  // Golpes extras de algumas espécies (como no FireRed: Charmander aprende Garra de Metal)
+  // Golpes extras de algumas espécies (como no FireRed: Charmander aprende Garra de Metal).
+  // Para cada inicial ter resposta aos ginásios que levam vantagem sobre ele: Charmander aprende
+  // Soco Trovão (tutor do FireRed) para a Misty e a linha do Squirtle ganha Vento Gelado para a Erika.
   const FLASH_CANNON = { name: 'Canhão de Luz', kind: 'proj', type: 'steel', pow: 65, cd: 2.2, speed: 240, r: 7 };
+  const THUNDER_PUNCH = { name: 'Soco Trovão', kind: 'dash', type: 'electric', pow: 75, cd: 2.2, para: .1 };
   const EXTRA_MOVES = {
-    4: [[FLASH_CANNON, 6]], 5: [[FLASH_CANNON, 6]], 6: [[FLASH_CANNON, 6]],
-    7: [[MOVES.dark[0], 10]], 8: [[MOVES.dark[0], 10]], 9: [[MOVES.dark[0], 10]],
+    4: [[FLASH_CANNON, 6], [THUNDER_PUNCH, 9]], 5: [[FLASH_CANNON, 6], [THUNDER_PUNCH, 9]], 6: [[FLASH_CANNON, 6], [THUNDER_PUNCH, 9]],
+    7: [[MOVES.dark[0], 10], [MOVES.ice[0], 18]], 8: [[MOVES.dark[0], 10], [MOVES.ice[0], 18]], 9: [[MOVES.dark[0], 10], [MOVES.ice[0], 18]],
     25: [[MOVES.steel[1], 26]], 26: [[MOVES.steel[1], 26]],
   };
 
@@ -160,29 +163,31 @@
   // Redução do dano que os Pokémon do jogador recebem
   const PLAYER_GUARD = .85;
 
-  // Os 8 ginásios de Kanto, com os times do FireRed em níveis menores
+  // Os 8 ginásios de Kanto, com os times do FireRed em níveis menores.
+  // iv = valor individual mínimo dos Pokémon do líder (20 se não tiver). Os 4 primeiros são mais
+  // fracos: o jogador ainda não tem time para cobrir o tipo (ver tools/sim.js).
   const GYMS = [
     {
       leader: 'Brock', city: 'Pewter', type: 'rock', badge: 'Insígnia Rocha', look: 'brock',
-      team: [[74, 5], [95, 6]], money: 100,
+      team: [[74, 5], [95, 6]], money: 100, iv: 5,
       intro: 'Sou Brock, Líder de Pewter! Minha defesa de pedra é dura como rocha!',
       lose: 'Eu subestimei você... Leve a Insígnia Rocha!',
     },
     {
       leader: 'Misty', city: 'Cerulean', type: 'water', badge: 'Insígnia Cascata', look: 'misty',
-      team: [[120, 9], [121, 10]], money: 100,
+      team: [[120, 8], [121, 9]], money: 100, iv: 5,
       intro: 'Sou Misty, a sereia de Cerulean! Prepare-se para se molhar!',
       lose: 'Uau, você é forte! Tome a Insígnia Cascata.',
     },
     {
       leader: 'Lt. Surge', city: 'Vermilion', type: 'electric', badge: 'Insígnia Trovão', look: 'surge',
-      team: [[100, 16], [25, 17], [26, 19]], money: 100,
+      team: [[100, 14], [25, 15], [26, 17]], money: 100, iv: 5,
       intro: 'Ei, garoto! Meus Pokémon elétricos me salvaram na guerra. Vão te eletrocutar!',
       lose: 'Uau! Você é eletrizante! A Insígnia Trovão é sua!',
     },
     {
       leader: 'Erika', city: 'Celadon', type: 'grass', badge: 'Insígnia Arco-íris', look: 'erika',
-      team: [[71, 21], [114, 21], [45, 23]], money: 100,
+      team: [[71, 20], [114, 20], [45, 22]], money: 100, iv: 10,
       intro: 'Olá... Sou Erika. Adoro arranjos de flores. Que tal uma batalha?',
       lose: 'Oh! Eu me rendo. Você merece a Insígnia Arco-íris.',
     },

@@ -52,7 +52,7 @@
   }
 
   // ---------- Diálogo ----------
-  const state = { auto: false, speedFn: () => 1, typing: null };
+  const state = { auto: false, autopilot: false, speedFn: () => 1, typing: null };
 
   function say(msg, opts = {}) {
     return new Promise(resolve => {
@@ -117,23 +117,29 @@
   }
 
   // Escolha com botões. options: [{ label, value, sub, disabled, icon }]
-  async function choose(msg, options) {
+  // No modo gravação (state.autopilot), opts.auto é escolhido sozinho depois de um instante.
+  async function choose(msg, options, opts = {}) {
     if (msg) await say(msg, { keep: true });
     return new Promise(resolve => {
       const box = $('#choices');
       box.innerHTML = '';
       box.classList.remove('hidden');
+      let timer = null;
       for (const o of options) {
         const b = el('button', 'choice' + (o.disabled ? ' disabled' : ''));
         b.innerHTML = (o.icon ? `<span class="ico" style="${o.icon}"></span>` : '') +
           `<span class="lbl">${esc(o.label)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</span>`;
         if (!o.disabled) {
           b.onclick = () => {
+            clearTimeout(timer);
             window.SFX.select();
             box.classList.add('hidden');
             $('#dialog').classList.add('hidden');
             resolve(o.value);
           };
+          if (state.autopilot && 'auto' in opts && o.value === opts.auto) {
+            timer = setTimeout(() => { b.classList.add('picked'); timer = setTimeout(() => b.onclick(), 350); }, 900 / state.speedFn());
+          }
         }
         box.appendChild(b);
       }

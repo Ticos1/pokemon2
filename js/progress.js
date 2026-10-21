@@ -101,7 +101,7 @@
 
   function gym(i) {
     const g = R.GYMS[i];
-    return { gym: g, team: g.team.map(([id, l]) => M.create(id, l, { minIv: 20 })), money: g.money * Math.max(...g.team.map(t => t[1])) };
+    return { gym: g, team: g.team.map(([id, l]) => M.create(id, l, { minIv: g.iv ?? 20 })), money: g.money * Math.max(...g.team.map(t => t[1])) };
   }
 
   function elite(i) {

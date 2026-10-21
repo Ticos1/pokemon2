@@ -51,6 +51,13 @@ ROUTE_TILES = {
     'forestL0': 0x1c, 'forestL1': 0x1f, 'forestL2': 0x14, 'forestL3': 0x17,
     'forestR0': 0x1e, 'forestR1': 0x1d, 'forestR2': 0x16, 'forestR3': 0x15,
     'treeTL': 0xe, 'treeTR': 0xf, 'treeBL': 0x26, 'treeBR': 0x27,
+    # caminho na horizontal: bordas de cima/baixo, cantos e cantos internos (praça encostando no caminho)
+    'pathT': 0xd4, 'pathB': 0xe4, 'pathTL': 0xd3, 'pathTR': 0xd5, 'pathBL': 0xe3, 'pathBR': 0xe5,
+    'pathInTL': 0x102, 'pathInTR': 0x103, 'pathInBL': 0x104, 'pathInBR': 0x105,
+    # floresta fechada (blocos alternados), base dos troncos e copas da borda de baixo
+    'woodA': 0x1c, 'woodB': 0x1d, 'woodC': 0x14, 'woodD': 0x15,
+    'trunkA': 0x24, 'trunkB': 0x25, 'canopyA': 0x1e, 'canopyB': 0x1f,
+    'ledgeL': 0xb0, 'ledge': 0x87, 'ledgeR': 0xb1, 'sign': 0x3,
 }
 
 # Prédios: (layout, porta x, porta y, x0, y0, x1, y1 relativos à porta, em blocos)
