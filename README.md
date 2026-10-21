@@ -88,6 +88,7 @@ assets/gba/             gráficos do FireRed: personagens, retratos, tiles, pré
 assets/fonts/           fonte Press Start 2P (licença OFL)
 tools/build_assets.py   gera os Pokémon e itens de assets/ (PokéAPI)
 tools/build_gba.py      gera assets/gba/ a partir do projeto pret/pokefirered
+tools/build_overworld.py gera assets/overworld.png (Pokémon andando de lado) do pret/pokeheartgold
 tools/gba_maps.py       renderiza mapas e metatiles do FireRed
 tools/sim.js            simula partidas sem tela para balancear (node tools/sim.js 40 1)
 tools/test.js           testes rápidos (node tools/test.js), rodam no GitHub Actions a cada push
@@ -104,4 +105,11 @@ git clone --depth 1 https://github.com/pret/pokefirered ../pokefirered
 python3 tools/build_gba.py ../pokefirered
 ```
 
-Sprites e dados: [PokéAPI](https://pokeapi.co/) e [pret/pokefirered](https://github.com/pret/pokefirered). Pokémon é marca da Nintendo/Game Freak. Projeto de fã, sem fins comerciais.
+Para gerar de novo os sprites dos Pokémon andando de lado (os seguidores originais do HeartGold/SoulSilver):
+
+```bash
+git clone --depth 1 https://github.com/pret/pokeheartgold ../pokeheartgold
+python3 tools/build_overworld.py ../pokeheartgold
+```
+
+Sprites e dados: [PokéAPI](https://pokeapi.co/), [pret/pokefirered](https://github.com/pret/pokefirered) e [pret/pokeheartgold](https://github.com/pret/pokeheartgold). Pokémon é marca da Nintendo/Game Freak. Projeto de fã, sem fins comerciais.

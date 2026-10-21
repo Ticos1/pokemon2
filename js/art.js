@@ -4,7 +4,7 @@
   const SHEET_FILES = {
     front: 'assets/front.png', back: 'assets/back.png',
     front_shiny: 'assets/front_shiny.png', back_shiny: 'assets/back_shiny.png',
-    icons: 'assets/icons.png', items: 'assets/items.png',
+    icons: 'assets/icons.png', items: 'assets/items.png', overworld: 'assets/overworld.png',
     people: 'assets/gba/people.png', portraits: 'assets/gba/portraits.png',
     tiles: 'assets/gba/tiles.png', buildings: 'assets/gba/buildings.png', badges: 'assets/gba/badges.png',
   };
@@ -114,6 +114,15 @@
     ctx.restore();
   }
 
+  // ---------- Pokémon andando de lado (seguidores do HeartGold/SoulSilver, 32x32) ----------
+  // tools/build_overworld.py: uma linha por Pokémon; quadros 0-1 esquerda, 2-3 direita, 4-7 shiny
+  // (x, y) = base do quadro; step 0/1 = passo
+  function drawWalker(ctx, id, shiny, dir, step, x, y, scale = 1) {
+    const f = (shiny ? 4 : 0) + (dir === 'right' ? 2 : 0) + (step & 1);
+    ctx.drawImage(SHEETS.overworld, f * 32, (id - 1) * 32, 32, 32,
+      Math.round(x - 16 * scale), Math.round(y - 32 * scale), 32 * scale, 32 * scale);
+  }
+
   // Retrato de batalha 64x64 (tela VS)
   function drawPortrait(ctx, key, cx, cy, scale = 1, flip = false) {
     const i = window.GBA.portraits[key];
@@ -172,6 +181,6 @@
 
   window.ART = {
     load, SHEETS, MON_SIZE, MON_FEET, canvas, drawMon, monCanvas, iconStyle, drawIcon, itemStyle, drawItem,
-    drawChar, drawPortrait, drawTile, tileStyle, headStyle, drawBuilding, buildingSize, drawBadge, badgeStyle, arena,
+    drawChar, drawWalker, drawPortrait, drawTile, tileStyle, headStyle, drawBuilding, buildingSize, drawBadge, badgeStyle, arena,
   };
 })();

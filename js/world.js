@@ -135,8 +135,19 @@
     }
   }
 
-  // Pokémon andando atrás do jogador: de lado (sprite de frente espelhado), com passos que pulam e achatam
+  // Pokémon andando atrás do jogador. De lado usa o sprite original de seguidor (HeartGold/SoulSilver),
+  // trocando o quadro a cada passo; de frente/costas usa o sprite de batalha, com passos que pulam e achatam
   function drawFollower(ctx, mon, cx, groundY, w) {
+    if (w.dir === 'left' || w.dir === 'right') {
+      // um passo a cada 16px, junto com o jogador; parado ele continua mexendo devagar
+      const step = w.walking ? Math.floor(w.dist / 16) : Math.floor(performance.now() / 500);
+      ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.beginPath();
+      ctx.ellipse(cx, groundY, 16, 5, 0, 0, 7);
+      ctx.fill();
+      ART.drawWalker(ctx, mon.id, mon.shiny, w.dir, step, cx, groundY + 4, 2);
+      return;
+    }
     const back = w.dir === 'up';
     const img = ART.monCanvas(mon.id, mon.shiny, back);
     const Z = ART.MON_SIZE;
@@ -160,8 +171,7 @@
     ctx.save();
     ctx.translate(Math.round(cx), Math.round(groundY - hop));
     ctx.rotate(tilt);
-    // os sprites de frente olham para a esquerda: espelha para andar para a direita
-    ctx.scale(s * sx * (w.dir === 'right' ? -1 : 1), s * sy);
+    ctx.scale(s * sx, s * sy);
     ctx.drawImage(img, -Z / 2, -ART.MON_FEET, Z, Z);
     ctx.restore();
   }
