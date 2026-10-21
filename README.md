@@ -31,34 +31,34 @@ python3 -m http.server 8000
   **FUGIR** só funciona contra selvagens. O nome de cada golpe aparece em cima de quem usou.
 - O jogo salva sozinho antes de cada parada. Na tela inicial aparece **CONTINUAR**.
 
-## A jornada: Kanto inteiro, como no Red/Blue
+## A jornada: 37 paradas sorteadas por Kanto
 
-O treinador atravessa Kanto na ordem do jogo de Game Boy, com cerca de 100 paradas. Cavernas e prédios usam o
-mapa de verdade de cada andar (FireRed); o nome do lugar aparece numa placa ao chegar.
+Antes de cada cidade com ginásio o treinador passa por **3 áreas sorteadas** de Kanto inteiro (qualquer rota,
+a Floresta de Viridian, cavernas, a Torre Pokémon, o S.S. Anne, a Silph Co., a Zona Safári, a Estrada Vitória...),
+cada uma com um evento sorteado. Depois vem a cidade: Centro Pokémon, loja e o ginásio. No fim, a Liga:
 
-| Trecho | Lugares |
-|---|---|
-| Começo | Rota 1, Viridian, Rota 22 (Blue), Rota 2, Floresta de Viridian, Pewter (Museu, **Brock**) |
-| Mt. Moon | Rota 3 (vendedor de Magikarp por ₽500), Mt. Moon 1F, B1F e B2F (Equipe Rocket e a escolha do fóssil) |
-| Cerulean | Blue, Ponte Pepita (Rota 24), casa do Bill (Rota 25), **Misty** |
-| Vermilion | Creche da Rota 5 (ovo), Rota 6, Fã-Clube, S.S. Anne (convés, 1F, 2F com o Blue, cabine do capitão), **Lt. Surge** |
-| Lavender e Celadon | Rotas 9 e 10, Túnel de Pedra 1F e B1F (escuro: Flash), Torre Pokémon 1F a 3F (Blue e o fantasma), Rota 8, Celadon (Loja de Departamentos com pedras, Eevee na Mansão, **Cassino**, Esconderijo Rocket B1F a B4F com Giovanni), **Erika** |
-| Torre Pokémon | 3F a 7F com o Scope Silph: zona purificada (cura), fantasma do Marowak, Equipe Rocket e o Sr. Fuji (Poké Flauta) |
-| Fuchsia e Saffron | Rotas 12–15 ou Ciclovia (os dois com **Snorlax**), **Zona Safári**, Casa do Guarda (Surfe), **Koga**, Silph Co. 2F a 11F (Blue, Lapras, Giovanni e a Bola Mestra), Dojo de Luta (Hitmonlee ou Hitmonchan), **Sabrina** |
-| Cinnabar | Ilhas Espuma 1F a B4F (**Articuno**) ou Rota 21 passando por Pallet, Mansão Pokémon 1F, 2F, 3F e B1F (o diário do Mew), Laboratório (revive os fósseis), quiz das portas, **Blaine** |
-| Reta final | Usina Elétrica (**Zapdos**), **Giovanni** em Viridian, Blue na Rota 22, Rota 23, Estrada Vitória 1F a 3F (**Moltres**), Elite dos 4 e o Campeão |
-| Depois da Liga | Caverna Desconhecida 1F, 2F e B1F, com o **Mewtwo** |
+8 ginásios × (3 áreas + a cidade) + Elite dos 4 + Campeão = **37 paradas**.
 
+| Ginásio | Cidade | Nível no caminho |
+|---|---|---|
+| **Brock** | Pewter | 4 a 9 |
+| **Misty** | Cerulean | 14 a 21 |
+| **Lt. Surge** | Vermilion | 19 a 25 |
+| **Erika** | Celadon | 25 a 32 |
+| **Koga** | Fuchsia | 31 a 38 |
+| **Sabrina** | Saffron | 37 a 43 |
+| **Blaine** | Cinnabar | 41 a 47 |
+| **Giovanni** | Viridian | 45 a 51 |
+
+- As 3 áreas antes de um ginásio são sempre diferentes, e em cavernas e prédios o andar também é sorteado.
+  Cavernas e prédios usam o mapa de verdade de cada andar (FireRed); o nome do lugar aparece numa placa ao chegar.
 - Cada lugar tem os Pokémon selvagens e os treinadores dele no Red/Blue (Zubat no Mt. Moon, Gastly na Torre,
-  Chansey e Tauros no Safári...). Os de água só aparecem na pesca, no mar e nas Ilhas Espuma.
-- Ginásios, Elite dos 4, Giovanni e os 6 encontros com o Blue têm os times e níveis do Red/Blue (o time do Blue
-  muda com o seu inicial). Antes de cada ginásio tem Centro Pokémon.
-- **Bifurcações**: em três lugares o jogador escolhe o caminho: Caverna do Diglett ou Rota 11; Rotas 12–15 ou
-  Ciclovia; Ilhas Espuma (com Articuno) ou Rota 21.
-- **Lendários** (Articuno, Zapdos, Moltres, Mewtwo) e **Snorlax**: dá para capturar. Se o time perder, o jogo
-  continua e a próxima parada é um Centro Pokémon.
-- Perder em qualquer outra batalha é fim de jogo. Depois de virar Campeão, perder na Caverna Desconhecida não
-  tira o título.
+  Chansey e Tauros no Safári...), mas o nível segue o próximo ginásio, não a área. Os de água só aparecem na
+  pesca, no mar e nas Ilhas Espuma.
+- Como são poucas batalhas entre os ginásios, cada batalha do caminho dá 4× a experiência do Game Boy
+  (ginásios, Elite dos 4 e Campeão dão a normal).
+- Ginásios, Elite dos 4 e o Campeão têm os times e níveis do Red/Blue (o time do Campeão muda com o seu inicial).
+- Perder qualquer batalha é fim de jogo.
 
 Eventos sorteados no caminho (o mesmo não sai duas vezes seguidas, menos grama e treinador):
 
@@ -76,15 +76,9 @@ Eventos sorteados no caminho (o mesmo não sai duas vezes seguidas, menos grama 
   contrário), tempestade de areia e granizo (machucam aos poucos quem não é do tipo que aguenta).
 - **Presente** e **item no chão** (Poké Bolas, poções, Reviver, Doce Raro, pedras ou Pepita).
 
-Lugares especiais:
+Lugares especiais (o código continua no jogo, mas eles não entram no sorteio das paradas):
+cassino de Celadon, Zona Safári com Bolas Safári, ovo da Creche, fósseis, lendários e os encontros com o Blue.
 
-- **Cassino de Celadon**: 50 fichas por ₽1000; o caça-níquel gira e cada toque para um rolo (paga na linha do
-  meio). Na sala de prêmios as fichas viram Abra, Clefairy, Nidorina, Dratini, Scyther ou Porygon.
-- **Zona Safári**: ₽500 e 30 Bolas Safári por 4 áreas. Sem batalha: bola, isca (fica calmo, mais difícil de
-  pegar), pedra (fica bravo, mais fácil de pegar, mas foge mais) ou fugir.
-- **Ovo da Creche** (Rota 5): choca depois de 4 paradas, com um Pokémon raro (Dratini, Eevee, Lapras, Chansey...).
-- **Fósseis**: no Mt. Moon você escolhe o Domo ou o Hélix, e o Museu de Pewter dá o Âmbar Antigo. O laboratório
-  de Cinnabar revive todos (Kabuto, Omanyte, Aerodactyl).
 - **Pedras de evolução**: na mochila, use no Pokémon para evoluir na hora.
 
 Outras regras:
@@ -112,7 +106,7 @@ Outras regras:
 index.html, style.css   página e estilo
 manifest.webmanifest    app instalável; sw.js guarda os arquivos para jogar offline
 js/rules.js             tipos, golpes de cada Pokémon, ginásios, Blue, treinadores, itens e pedras
-js/kanto.js             Kanto inteiro: áreas, andares, selvagens de cada lugar, a ordem da jornada e as bifurcações
+js/kanto.js             Kanto inteiro: áreas, andares, selvagens de cada lugar e o sorteio das paradas da jornada
 js/moves.js             golpes do FireRed na arena: nome em português e jeito de cada golpe
 js/mon.js               status, experiência e evolução dos Pokémon
 js/progress.js          XP, times inimigos e sorteio da rota

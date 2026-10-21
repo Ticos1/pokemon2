@@ -549,6 +549,8 @@
 
   // ---------- Ginásios, Liga ----------
   async function evGym(i) {
+    // a cidade do ginásio é uma parada só: primeiro o Centro Pokémon e a loja, depois o ginásio
+    if (G.route[i].city) await cityStop(i);
     const enc = J.encounter(G, i);
     const g = enc.gym;
     const x = G.world.px + 190;

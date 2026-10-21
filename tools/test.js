@@ -37,29 +37,35 @@ test('gráficos citados pelo mapa existem em assets/gba.js', () => {
 
 const K = global.window.KANTO;
 
-test('jornada passa por Kanto inteiro: 8 ginásios em ordem, Elite dos 4, Campeão e a Caverna Desconhecida', () => {
-  for (let r = 0; r < 30; r++) {
-    const st = J.newState(M.pick([1, 4, 7]), 1);
-    const route = st.route;
-    // as bifurcações viram o caminho escolhido
-    for (let i = 0; i < route.length; i++) if (route[i].ev === 'choice') K.expandChoice(route, i, M.randInt(0, 1));
-    assert.deepStrictEqual(route.filter(s => s.ev === 'gym').map(s => s.n), [0, 1, 2, 3, 4, 5, 6, 7]);
-    assert.deepStrictEqual(route.filter(s => s.ev === 'elite').map(s => s.n), [0, 1, 2, 3]);
-    assert.strictEqual(route.filter(s => s.ev === 'champion').length, 1);
-    assert.strictEqual(route[route.length - 1].ev, 'legend');
-    assert.strictEqual(route[route.length - 1].id, 150);
-    for (const a of ['mtmoon', 'ssanne', 'rocktunnel', 'tower', 'hideout', 'silph', 'mansion', 'powerplant', 'victory', 'unknown']) {
-      assert.ok(route.some(s => s.area === a), `falta ${a}`);
+test('jornada: 3 áreas sorteadas antes de cada cidade com ginásio, depois Elite dos 4 e Campeão (37 paradas)', () => {
+  const seen = new Set();
+  for (let r = 0; r < 50; r++) {
+    const route = J.newState(M.pick([1, 4, 7]), 1).route;
+    assert.strictEqual(route.length, 37);
+    for (let n = 0; n < 8; n++) {
+      const seg = route.slice(n * 4, n * 4 + 4);
+      assert.deepStrictEqual(seg[3], { ...seg[3], ev: 'gym', n, city: true, area: K.GYM_CITY[n] });
+      const areas = seg.slice(0, 3).map(s => s.area);
+      assert.strictEqual(new Set(areas).size, 3, 'áreas repetidas antes do mesmo ginásio');
+      for (const s of seg.slice(0, 3)) {
+        assert.ok(K.RANDOM_AREAS.includes(s.area) && !K.AREAS[s.area].city, s.area);
+        assert.ok(s.lvl >= K.GYM_LEVELS[n][0] && s.lvl <= K.GYM_LEVELS[n][1], `nível ${s.lvl} antes do ginásio ${n}`);
+        assert.strictEqual(s.stage, n);
+        seen.add(s.area);
+      }
     }
+    assert.deepStrictEqual(route.slice(32).map(s => s.ev), ['elite', 'elite', 'elite', 'elite', 'champion']);
     for (const s of route) {
-      assert.ok(K.AREAS[s.area] || s.ev === 'choice', `área ${s.area}`);
-      const map = K.AREAS[s.area] && K.AREAS[s.area].maps && K.AREAS[s.area].maps[s.floor];
-      if (map) assert.ok(window.GBA.maps[map], `mapa ${map}`);
-      assert.ok(!['R'].includes(s.ev), 'evento sorteado não resolvido');
+      assert.ok(K.AREAS[s.area], `área ${s.area}`);
+      const map = K.AREAS[s.area].maps && K.AREAS[s.area].maps[s.floor];
+      if (K.AREAS[s.area].kind === 'map') assert.ok(map && window.GBA.maps[map], `mapa de ${s.area} ${s.floor}`);
+      assert.ok(s.ev && s.ev !== 'R', 'evento sorteado não resolvido');
     }
     // a pesca só acontece onde tem água
-    for (const s of route) if (s.ev === 'fishing') assert.ok(K.AREAS[s.area].water || K.AREAS[s.area].sea || s.area === 'route12', s.area);
+    for (const s of route) if (s.ev === 'fishing') assert.ok(K.AREAS[s.area].water, s.area);
   }
+  // o sorteio passa por boa parte de Kanto
+  assert.ok(seen.size > K.RANDOM_AREAS.length * .8, `só ${seen.size} áreas sorteadas`);
 });
 
 test('todo evento de batalha gera inimigos válidos', () => {
@@ -152,7 +158,8 @@ test('Pokémon de água não aparecem na grama alta das rotas', () => {
 
 test('perder para um lendário põe um Centro Pokémon como próxima parada', () => {
   const st = J.newState(1, 1);
-  const i = st.route.findIndex(s => s.ev === 'legend');
+  const i = 5;
+  st.route[i] = { ...st.route[i], ev: 'legend', id: 144, lvl: 50 };
   const n = st.route.length;
   J.insertCenter(st, i);
   assert.strictEqual(st.route.length, n + 1);

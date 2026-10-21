@@ -11,9 +11,14 @@
   // 5ª geração: quem está abaixo do inimigo ganha mais, quem está acima ganha menos
   // O começo da jornada tem poucas batalhas até o Brock e o Blue em Cerulean; o fim tem muitas
   const xpScale = lvl => Math.min(1.3, Math.max(.55, 1.45 - lvl / 40));
-  function xpFor(enemy, mult, lvl = enemy.lvl) {
+  // a jornada tem só 3 paradas entre os ginásios: cada batalha do caminho vale bem mais que no
+  // Game Boy (ginásios, Elite dos 4 e Campeão ficam como estavam)
+  const JOURNEY_XP = 4;
+  const LEAGUE_KINDS = new Set(['gym', 'elite', 'champion']);
+  function xpFor(enemy, mult, lvl = enemy.lvl, kind) {
     const k = Math.pow((2 * enemy.lvl + 10) / (enemy.lvl + lvl + 10), 2.5);
-    return Math.round(DEX[enemy.id].exp * enemy.lvl / 7 * mult * k * xpScale(enemy.lvl));
+    const boost = LEAGUE_KINDS.has(kind) ? 1 : JOURNEY_XP;
+    return Math.round(DEX[enemy.id].exp * enemy.lvl / 7 * mult * k * xpScale(enemy.lvl) * boost);
   }
 
   // Dá experiência: participantes ganham 100%, quem ficou no banco ganha BENCH_XP.
@@ -22,13 +27,13 @@
     const mult = XP_MULT[kind] || 1;
     const foes = [...result.defeated, ...(result.caught ? [result.caught] : [])];
     const lead = party.find(m => result.participants.has(m.uid)) || party[0];
-    const total = foes.reduce((s, e) => s + xpFor(e, mult, lead.lvl), 0);
+    const total = foes.reduce((s, e) => s + xpFor(e, mult, lead.lvl, kind), 0);
     const log = [];
     const evolve = [];
     for (const mon of party) {
       if (mon.hp <= 0) continue;
       const share = result.participants.has(mon.uid) ? 1 : BENCH_XP;
-      const gain = Math.round(foes.reduce((s, e) => s + xpFor(e, mult, mon.lvl), 0) * share);
+      const gain = Math.round(foes.reduce((s, e) => s + xpFor(e, mult, mon.lvl, kind), 0) * share);
       if (!gain) continue;
       mon.xp += gain;
       const startLvl = mon.lvl;

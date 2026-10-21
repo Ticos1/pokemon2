@@ -102,7 +102,7 @@ async function run(starter, mode) {
     for (const m of J.tickEggs(st)) J.addCaught(st, m, { gift: true });
     J.tickWeather(st);
     if (['city', 'center', 'heal'].includes(ev)) { J.healAll(st.party); if (ev === 'city') J.autoShop(st); continue; }
-    if (ev === 'elite' && stop.n === 0) { J.healAll(st.party); J.autoShop(st); }
+    if ((ev === 'elite' && stop.n === 0) || (ev === 'gym' && stop.city)) { J.healAll(st.party); J.autoShop(st); }
     if (ev === 'item') { J.foundItem(st); continue; }
     if (ev === 'gift') { J.addCaught(st, J.gift(st, i), { gift: true }); continue; }
     if (ev === 'egg') { J.giveEgg(st); continue; }

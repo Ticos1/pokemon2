@@ -1,7 +1,7 @@
 // Kanto inteiro, na ordem do Pokémon Red/Blue: rotas, cidades, cavernas (com os andares), prédios,
 // o cassino, a Torre Pokémon, a Zona Safári, a Estrada Vitória e a Caverna Desconhecida depois da Liga.
 // Cada área tem os Pokémon selvagens e os treinadores que aparecem nela no jogo de Game Boy.
-// buildRoute() monta a lista de paradas da partida; 'R' vira um evento sorteado da área.
+// buildRoute() monta a lista de paradas da partida, com as áreas sorteadas; 'R' vira um evento sorteado da área.
 (function () {
   const M = window.MON;
 
@@ -88,56 +88,42 @@
   };
 
   // ---------- A jornada ----------
-  // Cada área com as paradas na ordem. 'R' = evento sorteado; um objeto = parada fixa.
-  // floor = andar (mapa em AREAS[].maps). choice = bifurcação (o jogador escolhe o caminho)
+  // Antes de cada cidade com ginásio, 3 paradas em áreas sorteadas de Kanto inteiro (qualquer rota,
+  // caverna ou prédio, com um evento sorteado); depois a cidade (Centro, loja e ginásio). No fim, a Liga.
+  // 8 x (3 + 1) + Elite dos 4 + Campeão = 37 paradas.
   const S = (ev, o = {}) => ({ ev, ...o });
-  const JOURNEY = [
-    ['route1', ['wild', 'R']],
-    ['viridian', [S('city', { text: 'O Ginásio de Viridian está trancado. Dizem que o líder sumiu...' })]],
-    ['route22', [S('rival', { n: 0 })]],
-    ['route2', ['R']],
-    ['forest', ['wild', 'trainer', 'R', 'trainer']],
-    ['pewter', [S('story', { key: 'museum', floor: 'Museu' }), S('city'), S('gym', { n: 0 })]],
-    ['route3', ['trainer', 'double', 'R', S('center', { name: 'Centro Pokémon do Mt. Moon' }), S('magikarp')]],
-    ['mtmoon', [S('wild', { floor: '1F' }), S('trainer', { floor: '1F' }), S('R', { floor: 'B1F' }), S('wild', { floor: 'B1F' }), S('rocket', { floor: 'B2F' }), S('fossil', { floor: 'B2F' })]],
-    ['route4', ['R']],
-    ['cerulean', [S('city'), S('rival', { n: 1 })]],
-    ['route24', ['trainer', 'double', S('rocket', { nugget: true })]],
-    ['route25', ['R', S('story', { key: 'bill', floor: 'Bill' })]],
-    ['cerulean', [S('center'), S('gym', { n: 1 })]],
-    ['route5', [S('egg', { floor: 'Creche' }), 'R']],
-    ['route6', ['double', 'R']],
-    ['vermilion', [S('city'), S('story', { key: 'fanclub', floor: 'Fã-Clube' })]],
-    ['ssanne', [S('trainer', { floor: 'Convés' }), S('trainer', { floor: '1F' }), S('rival', { n: 2, floor: '2F' }), S('story', { key: 'captain', floor: 'Cabine' })]],
-    [null, [S('choice', { key: 'vermilion' })]],
-    ['vermilion', [S('center'), S('gym', { n: 2 })]],
-    ['route9', ['trainer', 'R']],
-    ['route10', [S('center', { name: 'Centro Pokémon do Túnel de Pedra' })]],
-    ['rocktunnel', [S('story', { key: 'dark', floor: '1F' }), S('wild', { floor: '1F' }), S('trainer', { floor: '1F' }), S('trainer', { floor: 'B1F' }), S('R', { floor: 'B1F' })]],
-    ['lavender', [S('center')]],
-    ['tower', [S('story', { key: 'tower1', floor: '1F' }), S('rival', { n: 3, floor: '2F' }), S('story', { key: 'ghost', floor: '3F' })]],
-    ['route8', ['R', 'trainer']],
-    ['celadon', [S('city', { dept: true, floor: 'Loja' }), S('gift', { key: 'eevee', floor: 'Mansão' }), S('casino', { floor: 'Cassino' })]],
-    ['hideout', [S('rocket', { floor: 'B1F' }), S('R', { floor: 'B2F' }), S('rocket', { floor: 'B3F' }), S('boss', { key: 'giovanni1', floor: 'B4F' })]],
-    ['celadon', [S('center'), S('gym', { n: 3 })]],
-    ['tower', [S('trainer', { floor: '3F', lvl: 24 }), S('wild', { floor: '4F', lvl: 25 }), S('heal', { key: 'purified', floor: '5F' }), S('marowak', { floor: '6F', lvl: 30 }), S('rocket', { floor: '7F', lvl: 28 }), S('story', { key: 'fuji', floor: '7F' })]],
-    [null, [S('choice', { key: 'lavender' })]],
-    ['fuchsia', [S('city'), S('safari', { floor: 'Zona Safári' }), S('story', { key: 'warden', floor: 'Casa do Guarda' }), S('gym', { n: 4 })]],
-    ['saffron', [S('city')]],
-    ['silph', [S('rocket', { floor: '2F' }), S('trainer', { floor: '3F' }), S('R', { floor: '5F' }), S('rival', { n: 4, floor: '7F' }), S('gift', { key: 'lapras', floor: '7F' }), S('heal', { key: 'silph', floor: '9F' }), S('boss', { key: 'giovanni2', floor: '11F' })]],
-    ['saffron', [S('dojo', { floor: 'Dojo', lvl: 36 }), S('center'), S('gym', { n: 5 })]],
-    [null, [S('choice', { key: 'fuchsia' })]],
-    ['cinnabar', [S('city')]],
-    ['mansion', [S('wild', { floor: '1F' }), S('trainer', { floor: '2F' }), S('R', { floor: '3F' }), S('story', { key: 'diary', floor: 'B1F' }), S('wild', { floor: 'B1F' })]],
-    ['cinnabar', [S('lab', { floor: 'Laboratório' }), S('center'), S('quiz'), S('gym', { n: 6 })]],
-    ['powerplant', [S('wild', { floor: '' }), S('item', { floor: '' }), S('wild', { floor: '' }), S('legend', { id: 145, lvl: 50, floor: '' })]],
-    ['viridian', [S('city'), S('gym', { n: 7 })]],
-    ['route22', [S('rival', { n: 5, lvl: 50 })]],
-    ['route23', [S('story', { key: 'gates' }), 'R']],
-    ['victory', [S('trainer', { floor: '1F' }), S('wild', { floor: '1F' }), S('legend', { id: 146, lvl: 50, floor: '2F' }), S('trainer', { floor: '2F' }), S('R', { floor: '3F' }), S('trainer', { floor: '3F' })]],
-    ['indigo', [S('elite', { n: 0 }), S('elite', { n: 1 }), S('elite', { n: 2 }), S('elite', { n: 3 }), S('champion')]],
-    ['unknown', [S('story', { key: 'unknown', floor: '1F' }), S('wild', { floor: '1F' }), S('wild', { floor: '2F' }), S('legend', { id: 150, lvl: 70, floor: 'B1F' })]],
-  ];
+  const STOPS_PER_GYM = 3;
+  const GYM_CITY = ['pewter', 'cerulean', 'vermilion', 'celadon', 'fuchsia', 'saffron', 'cinnabar', 'viridian'];
+  // nível dos selvagens e treinadores nas 3 paradas antes de cada ginásio (da primeira à última)
+  const GYM_LEVELS = [[4, 9], [14, 21], [19, 25], [25, 32], [31, 38], [37, 43], [41, 47], [45, 51]];
+  // áreas que podem ser sorteadas: tudo menos as cidades, Pallet e o Planalto Índigo
+  const RANDOM_AREAS = Object.keys(AREAS).filter(k => !AREAS[k].city && (AREAS[k].pool || AREAS[k].trainers));
+  const LEAGUE = ['indigo', [S('elite', { n: 0 }), S('elite', { n: 1 }), S('elite', { n: 2 }), S('elite', { n: 3 }), S('champion')]];
+
+  // 3 áreas diferentes, cada uma num andar sorteado
+  function randomStops(n) {
+    const areas = [];
+    while (areas.length < STOPS_PER_GYM) {
+      const k = M.pick(RANDOM_AREAS);
+      if (!areas.includes(k)) areas.push(k);
+    }
+    const [lo, hi] = GYM_LEVELS[n];
+    return areas.map((k, j) => {
+      const maps = AREAS[k].kind === 'map' && AREAS[k].maps ? Object.keys(AREAS[k].maps) : null;
+      const lvl = Math.round(lo + (hi - lo) * j / (STOPS_PER_GYM - 1));
+      return [k, [S('R', { lvl, ...(maps ? { floor: M.pick(maps) } : {}) })]];
+    });
+  }
+
+  function journey() {
+    const path = [];
+    for (let n = 0; n < GYM_CITY.length; n++) {
+      path.push(...randomStops(n));
+      path.push([GYM_CITY[n], [S('gym', { n, city: true })]]);
+    }
+    path.push(LEAGUE);
+    return path;
+  }
 
   // Bifurcações: o jogador escolhe por onde seguir (como no Game Boy, os dois caminhos levam ao mesmo lugar)
   const CHOICES = {
@@ -212,7 +198,7 @@
   }
 
   function buildRoute() {
-    return expand(JOURNEY, { badges: 0, used: {}, prev: null });
+    return expand(journey(), { badges: 0, used: {}, prev: null });
   }
 
   // Paradas do caminho escolhido numa bifurcação: entram logo depois dela
@@ -233,5 +219,5 @@
     return a.name + floor;
   }
 
-  window.KANTO = { POOLS, FISH, AREAS, JOURNEY, CHOICES, buildRoute, expandChoice, placeName };
+  window.KANTO = { POOLS, FISH, AREAS, GYM_CITY, GYM_LEVELS, RANDOM_AREAS, CHOICES, buildRoute, expandChoice, placeName };
 })();

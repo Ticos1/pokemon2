@@ -77,11 +77,12 @@
     if (!prog) return;
     prog.innerHTML = '';
     const stop = G.route[G.step];
-    // paradas da área atual (seguidas)
+    // trecho atual: as áreas sorteadas até o próximo ginásio (ou a Liga inteira)
+    const ends = st => st.ev === 'gym';
     let a = G.step, b = G.step;
     if (stop) {
-      while (a > 0 && G.route[a - 1].area === stop.area && stop.area) a--;
-      while (b < G.route.length - 1 && G.route[b + 1].area === stop.area && stop.area) b++;
+      while (a > 0 && !ends(G.route[a - 1])) a--;
+      while (b < G.route.length - 1 && !ends(G.route[b])) b++;
     }
     for (let i = a; i <= b && stop; i++) {
       const st = G.route[i];
